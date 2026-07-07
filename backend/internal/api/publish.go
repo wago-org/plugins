@@ -1,6 +1,9 @@
 package api
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -8,6 +11,25 @@ import (
 	"github.com/wago-org/registry-backend/internal/httpx"
 	"github.com/wago-org/registry-backend/internal/model"
 )
+
+// releaseHash is a content fingerprint of a published release: a SHA-256 over the
+// module path, version, commit, notes, unpacked size and subpackage manifest.
+// json.Marshal sorts map keys, so this is deterministic. It makes each version
+// tamper-evident — combined with the append-only, republish-rejected version
+// list, a release is effectively immutable once published.
+func releaseHash(module string, v model.Version, subs []model.Subpackage) string {
+	payload := struct {
+		Module      string             `json:"module"`
+		Version     string             `json:"version"`
+		Commit      string             `json:"commit"`
+		Notes       string             `json:"notes"`
+		UnpackedKB  int                `json:"unpackedKB"`
+		Subpackages []model.Subpackage `json:"subpackages"`
+	}{module, v.Version, v.Commit, v.Notes, v.UnpackedKB, subs}
+	b, _ := json.Marshal(payload)
+	sum := sha256.Sum256(b)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
 
 // publishRequest is the body of POST /api/publish.
 type publishRequest struct {
@@ -98,14 +120,16 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	for i := range p.Versions {
 		p.Versions[i].Latest = false
 	}
-	p.Versions = append(p.Versions, model.Version{
+	nv := model.Version{
 		Version:     req.Version,
 		Commit:      req.Commit,
 		Notes:       req.Notes,
 		UnpackedKB:  req.UnpackedKB,
 		PublishedAt: time.Now().UTC().Format(time.RFC3339),
 		Latest:      true,
-	})
+	}
+	nv.Hash = releaseHash(p.Name, nv, p.Subpackages)
+	p.Versions = append(p.Versions, nv)
 	p.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 
 	if err := a.Store.UpsertPackage(p); err != nil {

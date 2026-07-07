@@ -62,6 +62,9 @@ type Version struct {
 	Latest       bool   `json:"latest"`
 	InstallShare int    `json:"installShare"`
 	Deprecated   bool   `json:"deprecated,omitempty"`
+	// Hash is a server-computed content fingerprint (sha256:…) of the release,
+	// making each published version tamper-evident and immutable.
+	Hash string `json:"hash,omitempty"`
 }
 
 // APIToken is a personal access token used by the CLI / CI to authenticate API
