@@ -396,6 +396,65 @@ func (a *App) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(c, u.ID))
 }
 
+// handleUpdateComment edits a comment's body. Only the comment's author may edit.
+func (a *App) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
+	u := a.Sessions.CurrentUser(r)
+	if u == nil {
+		httpx.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	c, ok := a.Store.GetComment(r.PathValue("id"))
+	if !ok {
+		httpx.WriteError(w, http.StatusNotFound, "comment not found")
+		return
+	}
+	if c.UserID != u.ID {
+		httpx.WriteError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	var in struct {
+		Body string `json:"body"`
+	}
+	if err := decodeJSON(w, r, &in, 1<<16); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if len(in.Body) == 0 || len(in.Body) > 4000 {
+		httpx.WriteError(w, http.StatusBadRequest, "body must be 1-4000 chars")
+		return
+	}
+	updated, err := a.Store.UpdateComment(c.ID, in.Body)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(updated, u.ID))
+}
+
+// handleDeleteReview removes the caller's review. Only the review's author may
+// delete it.
+func (a *App) handleDeleteReview(w http.ResponseWriter, r *http.Request) {
+	u := a.Sessions.CurrentUser(r)
+	if u == nil {
+		httpx.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	rev, ok := a.Store.GetReview(r.PathValue("id"))
+	if !ok {
+		httpx.WriteError(w, http.StatusNotFound, "review not found")
+		return
+	}
+	if rev.UserID != u.ID {
+		httpx.WriteError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if err := a.Store.DeleteReview(rev.ID); err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func (a *App) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 	u := a.Sessions.CurrentUser(r)
 	if u == nil {

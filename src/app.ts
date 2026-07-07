@@ -158,6 +158,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.hoverRating = 0;
     state.draftText = "";
     state.reviewPreview = false;
+    state.reviewEditing = null;
     state.issueFilter = "open";
     state.ghIssues = null;
     state.ghIssuesLoading = false;
@@ -172,6 +173,8 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.replyTo = null;
     state.replyDraft = "";
     state.replyPreview = false;
+    state.commentEditing = null;
+    state.commentEditDraft = "";
     state.installSeries = [];
     // seed the star widget synchronously so the header renders immediately…
     state.starred = !!pkg.starred;
@@ -556,6 +559,35 @@ async function submitReview(): Promise<void> {
     state.hoverRating = 0;
     state.composerOpen = false;
     state.reviewPreview = false;
+    state.reviewEditing = null;
+    await refreshReviews();
+}
+
+// Open the review composer prefilled with the user's own review, to edit it.
+// Submitting upserts (replaces) it.
+function editReviewOpen(id: string): void {
+    const r = state.reviews.find((x) => x.id === id);
+    if (!r || !r.mine) return;
+    state.composerOpen = true;
+    state.reviewEditing = id;
+    state.draftRating = r.rating;
+    state.hoverRating = 0;
+    state.draftText = r.body;
+    state.reviewPreview = false;
+    render();
+}
+
+async function deleteReviewAction(id: string): Promise<void> {
+    if (!state.user || !state.pkg) return;
+    const r = state.reviews.find((x) => x.id === id);
+    if (!r || !r.mine) return;
+    await api.deleteReview(state.pkg, id);
+    if (state.reviewEditing === id) {
+        state.reviewEditing = null;
+        state.composerOpen = false;
+        state.draftText = "";
+        state.draftRating = 0;
+    }
     await refreshReviews();
 }
 
@@ -611,6 +643,24 @@ async function submitReply(parentId: string): Promise<void> {
 async function removeComment(id: string): Promise<void> {
     if (!state.pkg) return;
     await api.deleteComment(state.pkg, id);
+    await refreshComments();
+}
+
+function editCommentOpen(id: string): void {
+    const c = state.comments.find((x) => x.id === id);
+    if (!c || !c.mine) return;
+    state.commentEditing = id;
+    state.commentEditDraft = c.body;
+    render();
+}
+
+async function saveCommentEdit(id: string): Promise<void> {
+    if (!state.pkg) return;
+    const text = state.commentEditDraft.trim();
+    if (!text) return;
+    await api.editComment(state.pkg, id, text);
+    state.commentEditing = null;
+    state.commentEditDraft = "";
     await refreshComments();
 }
 
@@ -789,7 +839,14 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             state.draftRating = 0;
             state.hoverRating = 0;
             state.reviewPreview = false;
+            state.reviewEditing = null;
             render();
+            break;
+        case "review-edit":
+            if (arg) editReviewOpen(arg);
+            break;
+        case "review-delete":
+            if (arg) void deleteReviewAction(arg);
             break;
         case "rate":
             state.draftRating = Number(arg) || 0;
@@ -865,6 +922,17 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             break;
         case "comment-delete":
             if (arg) void removeComment(arg);
+            break;
+        case "comment-edit-open":
+            if (arg) editCommentOpen(arg);
+            break;
+        case "comment-edit-save":
+            if (arg) void saveCommentEdit(arg);
+            break;
+        case "comment-edit-cancel":
+            state.commentEditing = null;
+            state.commentEditDraft = "";
+            render();
             break;
         case "setting":
             if (arg && arg in state.settings) {
@@ -943,6 +1011,7 @@ function wireEvents(): void {
         else if (act === "draft") state.draftText = value;
         else if (act === "bio") state.bioDraft = value;
         else if (act === "comment-draft") state.commentDraft = value;
+        else if (act === "comment-edit-draft") state.commentEditDraft = value;
         else if (act === "reply-draft") state.replyDraft = value;
         else if (act === "email-draft") state.emailDraft = value;
         else if (act === "email-code") {
@@ -983,6 +1052,9 @@ function wireEvents(): void {
     });
 
     window.addEventListener("popstate", () => void route());
+    // Bare in-app hash links (e.g. @mention → #/u/login inside rendered markdown)
+    // change the hash without pushState, so route on hashchange too.
+    window.addEventListener("hashchange", () => void route());
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────

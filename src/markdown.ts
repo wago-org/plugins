@@ -52,11 +52,18 @@ export async function initMarkdown(): Promise<void> {
         marked = markedMod.marked as unknown as MarkedFn;
         purify = purifyMod.default as unknown as Purify;
         marked.setOptions({ gfm: true, breaks: true });
-        // Force every link to open safely in a new tab.
+        // Force external links to open safely in a new tab, but leave internal
+        // in-app links (#/… — e.g. @mention profile links) navigating in place.
         purify.addHook("afterSanitizeAttributes", (node) => {
             if (node.tagName === "A") {
-                node.setAttribute("target", "_blank");
-                node.setAttribute("rel", "noopener nofollow");
+                const href = node.getAttribute("href") || "";
+                if (href.startsWith("#")) {
+                    node.removeAttribute("target");
+                    node.setAttribute("rel", "noopener");
+                } else {
+                    node.setAttribute("target", "_blank");
+                    node.setAttribute("rel", "noopener nofollow");
+                }
             }
         });
         // Only mark ready if sanitize is actually usable in this environment.
@@ -70,6 +77,17 @@ export async function initMarkdown(): Promise<void> {
     }
 }
 
+// Turn @mentions into markdown links to the user's wago profile. Matches a
+// GitHub-style login (1–39 chars, alnum + hyphen) only when it follows start of
+// string or a non-identifier char that isn't part of an email/path (so
+// "a@b.com" and "foo/@bar" don't match). Applied to the source before marked.
+function linkifyMentions(src: string): string {
+    return src.replace(
+        /(^|[\s([{><,;:!?])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)/g,
+        (_m, pre: string, login: string) => `${pre}[@${login}](#/u/${login})`,
+    );
+}
+
 // renderMarkdown returns sanitized HTML for `src`. Before initMarkdown resolves,
 // or if the libraries failed to load, it returns escaped text wrapped in a
 // paragraph so plain content still shows (and stays inert).
@@ -79,7 +97,7 @@ export function renderMarkdown(src: string): string {
         return `<p>${esc(input)}</p>`;
     }
     try {
-        const rawHtml = marked(input);
+        const rawHtml = marked(linkifyMentions(input));
         return purify.sanitize(rawHtml, {
             ALLOWED_TAGS,
             ALLOWED_ATTR,

@@ -44,6 +44,7 @@ type Store interface {
 	ReviewsForPackage(short string) []model.Review
 	UpsertReview(short, userID string, rating int, body string) (model.Review, error)
 	GetReview(id string) (model.Review, bool)
+	DeleteReview(id string) error
 	SetVote(reviewID, userID, dir string) (up, down int, err error)
 	VoteTally(reviewID string) (up, down int)
 	MyVote(reviewID, userID string) *string
@@ -52,6 +53,7 @@ type Store interface {
 	CommentsForPackage(short string) []model.Comment
 	AddComment(short, userID, body, parentID string) (model.Comment, error)
 	GetComment(id string) (model.Comment, bool)
+	UpdateComment(id, body string) (model.Comment, error)
 	DeleteComment(id string) error
 
 	// Installs (keyed by package short id; dates are YYYY-MM-DD).

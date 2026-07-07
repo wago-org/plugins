@@ -14,7 +14,7 @@ import type {
     UserEmail,
     VersionRow,
 } from "./types.js";
-import { compactNum, esc, escAttr, memberFor, relativeDate, shortHash, sparkline, starStr, tier } from "./util.js";
+import { compactNum, esc, escAttr, fullDate, relativeDate, shortHash, sparkline, starStr, tier } from "./util.js";
 import { mdBlock } from "./markdown.js";
 import { avatarFor } from "./github.js";
 
@@ -45,13 +45,6 @@ const STABILITY: Record<Stability, { color: string; bg: string; border: string }
 
 function relative(iso: string): string {
     return iso ? relativeDate(iso) : "—";
-}
-
-// "Joined May 2019" style label from an ISO date.
-function joinedLabel(iso: string): string {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
 // Ensure a blog value is a usable href (GitHub stores some without a scheme).
@@ -707,13 +700,13 @@ function composerOpenBlock(s: AppState, activeRating: number): string {
         : `<textarea data-act="draft" placeholder="How did it work for you? Markdown supported." style="width:100%;min-height:80px;background:${C.panel};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;color:${C.text};font-size:14px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.draftText)}</textarea>`;
     return `
   <div style="background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:18px 20px;margin-bottom:24px">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">Write a review</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">${s.reviewEditing ? "Edit your review" : "Write a review"}</div>
     <div id="star-picker" style="display:flex;gap:4px;font-size:26px;margin-bottom:12px;width:max-content">${stars}</div>
     ${writePreviewTabs(s.reviewPreview, "review-write", "review-preview")}
     ${editor}
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
       <button data-act="composer-close" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:10px 18px;border-radius:9px;cursor:pointer">Cancel</button>
-      <button data-act="review-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:10px 20px;border-radius:9px;cursor:pointer">Post review</button>
+      <button data-act="review-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:10px 20px;border-radius:9px;cursor:pointer">${s.reviewEditing ? "Update review" : "Post review"}</button>
     </div>
   </div>`;
 }
@@ -734,10 +727,16 @@ function reviewCard(r: Review): string {
                 <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(relative(r.createdAt))}</span>
               </div>
               <div style="margin:0 0 12px">${mdBlock(r.body)}</div>
-              <div style="display:flex;align-items:center;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <button data-act="vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${upOn ? C.bg : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▲ ${r.score ?? 0}</button>
                 <button data-act="vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${downOn ? C.bg : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▼</button>
-                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">was this helpful?</span>
+                ${
+                    r.mine
+                        ? `<span style="flex:1"></span>
+                <button data-act="review-edit" data-arg="${id}" style="background:none;border:none;color:${C.lilac};cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:0">edit</button>
+                <button data-act="review-delete" data-arg="${id}" style="background:none;border:none;color:${C.pink};cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:0">delete</button>`
+                        : `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">was this helpful?</span>`
+                }
               </div>
             </div>`;
 }
@@ -818,16 +817,29 @@ function commentBody(s: AppState, c: Comment): string {
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px">
         ${votes}
         ${s.user && !c.parentId ? `<button data-act="reply-open" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.lilac};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">reply</button>` : ""}
+        ${c.mine ? `<button data-act="comment-edit-open" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.lilac};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">edit</button>` : ""}
         ${c.mine ? `<button data-act="comment-delete" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.pink};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">delete</button>` : ""}
       </div>`;
-    return `
+    const header = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           ${ghAvatarSpan(c.login, c.author, c.initial || "?", c.bg || C.lilac, c.avatarUrl, 30, 12)}
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13.5px;color:${C.text}">${esc(c.author)}${c.mine ? ` <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted}">you</span>` : ""}</div>
           </div>
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(relative(c.createdAt))}</span>
-        </div>
+        </div>`;
+    // Inline edit mode for the caller's own comment.
+    if (c.mine && s.commentEditing === c.id) {
+        return `
+        ${header}
+        <textarea data-act="comment-edit-draft" placeholder="Edit your comment… Markdown supported." style="width:100%;min-height:64px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:10px 12px;color:${C.text};font-size:13.5px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.commentEditDraft)}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+          <button data-act="comment-edit-cancel" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:7px 14px;border-radius:8px;cursor:pointer">Cancel</button>
+          <button data-act="comment-edit-save" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Save</button>
+        </div>`;
+    }
+    return `
+        ${header}
         ${mdBlock(c.body)}
         ${actions}`;
 }
@@ -1223,12 +1235,12 @@ function acctProfile(s: AppState): string {
             <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};margin-bottom:12px">@${esc(u.login)}</div>
             ${bio ? `<p style="font-size:14.5px;line-height:1.6;color:${C.soft};margin:0 0 12px;max-width:520px">${esc(bio)}</p>` : ""}
             <div style="display:flex;gap:16px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted};margin-bottom:${profileStats(u) ? "12px" : "0"}">
-              ${u.company ? `<span>🏢 ${esc(u.company)}</span>` : ""}
-              ${u.location ? `<span>📍 ${esc(u.location)}</span>` : ""}
-              ${u.blog ? `<a href="${escAttr(profileHref(u.blog))}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">🔗 ${esc(u.blog)}</a>` : ""}
+              ${u.company ? `<span>⌂ ${esc(u.company)}</span>` : ""}
+              ${u.location ? `<span>⌖ ${esc(u.location)}</span>` : ""}
+              ${u.blog ? `<a href="${escAttr(profileHref(u.blog))}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">↗ ${esc(u.blog)}</a>` : ""}
               ${u.twitterUsername ? `<a href="https://twitter.com/${escAttr(u.twitterUsername)}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">@${esc(u.twitterUsername)}</a>` : ""}
-              ${u.createdAt && memberFor(u.createdAt) ? `<span title="Joined wago ${esc(joinedLabel(u.createdAt))}">🎂 wago member for ${esc(memberFor(u.createdAt))}</span>` : ""}
-              ${u.githubCreatedAt ? `<span>🗓 On GitHub since ${esc(joinedLabel(u.githubCreatedAt))}</span>` : ""}
+              ${u.createdAt && fullDate(u.createdAt) ? `<span>Member since ${esc(fullDate(u.createdAt))}</span>` : ""}
+              ${u.githubCreatedAt ? `<span>On GitHub since ${esc(fullDate(u.githubCreatedAt))}</span>` : ""}
               <a href="${escAttr(u.htmlUrl || `https://github.com/${u.login}`)}" target="_blank" rel="noopener" style="color:${C.muted};text-decoration:none">⎇ github.com/${esc(u.login)}</a>
             </div>
             ${profileStats(u)}
@@ -1368,18 +1380,18 @@ export function userScreen(s: AppState): string {
         : `<span title="This person hasn't signed in to wago yet" style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${C.muted};background:${C.deep};border:1px solid ${C.line2};padding:4px 11px;border-radius:100px">generated profile</span>`;
 
     const meta = [
-        vu.company ? `<span>🏢 ${esc(vu.company)}</span>` : "",
-        vu.location ? `<span>📍 ${esc(vu.location)}</span>` : "",
+        vu.company ? `<span>⌂ ${esc(vu.company)}</span>` : "",
+        vu.location ? `<span>⌖ ${esc(vu.location)}</span>` : "",
         vu.blog
-            ? `<a href="${escAttr(profileHref(vu.blog))}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">🔗 ${esc(vu.blog)}</a>`
+            ? `<a href="${escAttr(profileHref(vu.blog))}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">↗ ${esc(vu.blog)}</a>`
             : "",
         vu.twitterUsername
             ? `<a href="https://twitter.com/${escAttr(vu.twitterUsername)}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">@${esc(vu.twitterUsername)}</a>`
             : "",
-        vu.claimed && vu.createdAt && memberFor(vu.createdAt)
-            ? `<span>🎂 wago member for ${esc(memberFor(vu.createdAt))}</span>`
+        vu.claimed && vu.createdAt && fullDate(vu.createdAt)
+            ? `<span>Member since ${esc(fullDate(vu.createdAt))}</span>`
             : "",
-        vu.githubCreatedAt ? `<span>🗓 On GitHub since ${esc(joinedLabel(vu.githubCreatedAt))}</span>` : "",
+        vu.githubCreatedAt ? `<span>On GitHub since ${esc(fullDate(vu.githubCreatedAt))}</span>` : "",
         `<a href="${escAttr(vu.htmlUrl || `https://github.com/${login}`)}" target="_blank" rel="noopener" style="color:${C.muted};text-decoration:none">⎇ github.com/${esc(login)}</a>`,
     ]
         .filter(Boolean)

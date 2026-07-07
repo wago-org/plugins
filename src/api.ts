@@ -533,6 +533,19 @@ export async function postReview(
     lsSet(LS.reviews, store);
 }
 
+export async function deleteReview(pkg: Package, reviewId: string): Promise<void> {
+    if (mode === "remote") {
+        await apiSend(`/api/reviews/${reviewId}`, "DELETE");
+        return;
+    }
+    const store = lsGet<Record<string, Review[]>>(LS.reviews, {});
+    store[pkg.short] = (store[pkg.short] || []).filter((r) => r.id !== reviewId);
+    lsSet(LS.reviews, store);
+    const votes = lsGet<Record<string, "up" | "down">>(LS.votes, {});
+    delete votes[reviewId];
+    lsSet(LS.votes, votes);
+}
+
 export async function voteReview(reviewId: string, dir: "up" | "down" | null): Promise<void> {
     if (mode === "remote") {
         await apiSend(`/api/reviews/${reviewId}/vote`, "POST", { dir });
@@ -630,6 +643,16 @@ export async function voteComment(commentId: string, dir: "up" | "down" | null):
     if (dir === null) delete votes[commentId];
     else votes[commentId] = dir;
     lsSet(LS.votes, votes);
+}
+
+export async function editComment(pkg: Package, id: string, body: string): Promise<void> {
+    if (mode === "remote") {
+        await apiSend(`/api/comments/${id}`, "PUT", { body });
+        return;
+    }
+    const store = lsGet<Record<string, Comment[]>>(LS.comments, {});
+    store[pkg.short] = (store[pkg.short] || []).map((c) => (c.id === id ? { ...c, body } : c));
+    lsSet(LS.comments, store);
 }
 
 export async function deleteComment(pkg: Package, id: string): Promise<void> {

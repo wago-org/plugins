@@ -47,6 +47,8 @@ export interface AppState {
     ghIssuesLoading: boolean;
     ghIssuesError: boolean; // couldn't reach GitHub / rate-limited
 
+    reviewEditing: string | null; // id of the review being edited (composer prefilled)
+
     // comments
     comments: Comment[];
     commentsLoading: boolean;
@@ -55,6 +57,8 @@ export interface AppState {
     replyTo: string | null;
     replyDraft: string;
     replyPreview: boolean; // reply composer: Write | Preview
+    commentEditing: string | null; // id of the comment being edited inline
+    commentEditDraft: string;
 
     // install history (for the sidebar sparkline)
     installSeries: InstallPoint[];
@@ -109,6 +113,8 @@ export const state: AppState = {
     ghIssuesLoading: false,
     ghIssuesError: false,
 
+    reviewEditing: null,
+
     comments: [],
     commentsLoading: false,
     commentDraft: "",
@@ -116,6 +122,8 @@ export const state: AppState = {
     replyTo: null,
     replyDraft: "",
     replyPreview: false,
+    commentEditing: null,
+    commentEditDraft: "",
 
     installSeries: [],
 

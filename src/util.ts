@@ -108,6 +108,20 @@ export function relativeDate(iso: string): string {
     return "just now";
 }
 
+// Full date label from an ISO timestamp, e.g. "July 7, 2026". Formatted in UTC
+// so a join date renders as the same calendar day for every viewer. Empty on
+// bad input.
+export function fullDate(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+    });
+}
+
 // Human "how long they've been a member" from an ISO join date, e.g.
 // "3 years", "5 months", "12 days", "today". Returns "" for a bad/empty date.
 export function memberFor(iso: string): string {

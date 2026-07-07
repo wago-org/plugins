@@ -449,6 +449,15 @@ func (s *JSONStore) GetReview(id string) (model.Review, bool) {
 	return rv, ok
 }
 
+// DeleteReview removes a review and any votes cast on it.
+func (s *JSONStore) DeleteReview(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.doc.Reviews, id)
+	delete(s.doc.Votes, id)
+	return s.persistLocked()
+}
+
 // --- Votes ---
 
 func (s *JSONStore) tallyLocked(reviewID string) (up, down int) {
@@ -538,6 +547,19 @@ func (s *JSONStore) GetComment(id string) (model.Comment, bool) {
 	defer s.mu.RUnlock()
 	c, ok := s.doc.Comments[id]
 	return c, ok
+}
+
+// UpdateComment replaces a comment's body.
+func (s *JSONStore) UpdateComment(id, body string) (model.Comment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.doc.Comments[id]
+	if !ok {
+		return model.Comment{}, errors.New("comment not found")
+	}
+	c.Body = body
+	s.doc.Comments[id] = c
+	return c, s.persistLocked()
 }
 
 func (s *JSONStore) DeleteComment(id string) error {
