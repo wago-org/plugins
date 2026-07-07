@@ -13,6 +13,16 @@ FRONTEND_URL ?= http://localhost:$(WEB_PORT)
 #   make api ENV_FILE=prod.env
 ENV_FILE   ?= dev.env
 
+# ── backend deploy (EC2) ─────────────────────────────────────────────────────
+# Override for your server — inline (make redeploy-remote REMOTE=user@1.2.3.4) or
+# by exporting in your shell. REMOTE is an ssh alias (~/.ssh/config) or user@host.
+# REMOTE_DIR is the service WorkingDirectory, REMOTE_SVC the systemd unit name,
+# and DEPLOY_GOARCH the server CPU (use arm64 for Graviton). Keep values comment-free.
+REMOTE        ?= wago
+REMOTE_DIR    ?= /opt/wago-registry
+REMOTE_SVC    ?= wago-registry
+DEPLOY_GOARCH ?= amd64
+
 # npx runs the locally-installed tsc; python serves the static files.
 TSC   := npx tsc
 SERVE := python3 -m http.server $(WEB_PORT)
@@ -127,3 +137,28 @@ clean: ## Remove build artifacts (dist, compiled JS, backend binary+store)
 reset-store: ## Delete the backend's data store (re-seeds from data/packages.json on next run)
 	rm -f backend/data/store.json backend/data/store.json.tmp
 	@echo "store cleared — it will re-seed on the next `make api`"
+
+## ── deploy the backend to your server ────────────────────────────────────────
+
+.PHONY: build-linux
+build-linux: ## Cross-compile the backend for the server (linux/$(DEPLOY_GOARCH))
+	cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=$(DEPLOY_GOARCH) \
+		go build -trimpath -ldflags "-s -w" -o registry ./cmd/registry
+	@echo "▸ built backend/registry (linux/$(DEPLOY_GOARCH))"
+
+.PHONY: redeploy
+redeploy: ## Rebuild + restart the backend ON THIS machine (run this while on the server)
+	cd backend && go build -trimpath -o registry ./cmd/registry
+	sudo install -m 0755 backend/registry $(REMOTE_DIR)/registry
+	sudo systemctl restart $(REMOTE_SVC)
+	@sleep 1; systemctl is-active $(REMOTE_SVC) && curl -fsS localhost:$(API_PORT)/api/health \
+		&& echo "  ✓ redeployed + healthy" || echo "  ⚠ check: sudo journalctl -u $(REMOTE_SVC) -n50"
+
+.PHONY: redeploy-remote
+redeploy-remote: build-linux ## From your dev machine: cross-compile, upload, and restart on $(REMOTE)
+	scp backend/registry $(REMOTE):/tmp/wago-registry.new
+	ssh $(REMOTE) 'set -e; \
+		sudo install -m 0755 /tmp/wago-registry.new $(REMOTE_DIR)/registry; rm -f /tmp/wago-registry.new; \
+		sudo systemctl restart $(REMOTE_SVC); sleep 1; \
+		systemctl is-active $(REMOTE_SVC); curl -fsS localhost:$(API_PORT)/api/health; \
+		echo "  ✓ redeployed + healthy on $(REMOTE)"'
