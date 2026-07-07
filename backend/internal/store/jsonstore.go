@@ -552,6 +552,9 @@ func (s *JSONStore) InstallSeries(short string, sinceDays int) []InstallPoint {
 	if sinceDays <= 0 {
 		sinceDays = 90
 	}
+	if sinceDays > 366 {
+		sinceDays = 366 // cap so an untrusted ?days= can't force a huge allocation
+	}
 	now := time.Now().UTC()
 	out := make([]InstallPoint, 0, sinceDays)
 	days := s.doc.Installs[short]

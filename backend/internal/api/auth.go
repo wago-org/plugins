@@ -65,7 +65,7 @@ func (a *App) handleCallback(w http.ResponseWriter, r *http.Request) {
 		fail("store")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: auth.StateCookieName, Path: "/", MaxAge: -1})
+	http.SetCookie(w, a.Sessions.ClearStateCookie())
 
 	// CLI login: mint an API token and hand it back to the CLI's loopback
 	// listener instead of setting a browser session.

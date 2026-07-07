@@ -5,10 +5,16 @@
 package email
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/smtp"
+	"strings"
 )
+
+// errHeaderInjection is returned when a header field contains a newline, which
+// could otherwise inject additional SMTP headers.
+var errHeaderInjection = errors.New("email: header field contains a newline")
 
 // Config holds the SMTP settings, all sourced from the environment.
 type Config struct {
@@ -40,6 +46,12 @@ func (s *Sender) Send(to, subject, body string) (sent bool, err error) {
 	from := s.cfg.From
 	if from == "" {
 		from = s.cfg.User
+	}
+	// Guard against SMTP header injection: a CR/LF in any header field (notably
+	// the user-supplied recipient) would let an attacker inject extra headers.
+	if strings.ContainsAny(to, "\r\n") || strings.ContainsAny(subject, "\r\n") ||
+		strings.ContainsAny(from, "\r\n") {
+		return false, errHeaderInjection
 	}
 	msg := []byte(fmt.Sprintf(
 		"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\n"+
