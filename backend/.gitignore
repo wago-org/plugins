@@ -4,11 +4,9 @@ data/store.json
 # Atomic-write temp files
 *.tmp
 
-# Built binaries
+# Built binaries (anchored so they don't also match the cmd/registry source dir)
 /registry
 /registry-backend
-registry
-registry-backend
 
 # Local env (real secrets); the *.env.example templates ARE committed.
 .env
