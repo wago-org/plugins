@@ -146,6 +146,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     // seed the star widget synchronously so the header renders immediately…
     state.starred = !!pkg.starred;
     state.starCount = pkg.stars;
+    state.bookmarked = api.isBookmarked(pkg.short);
     if (push) pushUrl(`#/p/${encodeURIComponent(short)}`);
     render();
     scrollTop();
@@ -377,6 +378,14 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
                 navSearch();
             }
             break;
+        case "kw":
+            if (arg) {
+                state.cats = {};
+                state.verified = false;
+                state.query = arg;
+                navSearch();
+            }
+            break;
         case "filter-cat":
             if (arg) {
                 state.cats = { ...state.cats, [arg]: !state.cats[arg] };
@@ -396,6 +405,13 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             break;
         case "star":
             void toggleStar();
+            break;
+        case "bookmark":
+            if (state.pkg) {
+                state.bookmarked = !state.bookmarked;
+                api.setBookmark(state.pkg.short, state.bookmarked);
+                render();
+            }
             break;
         case "composer-open":
             if (!state.user) {

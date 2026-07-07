@@ -47,7 +47,7 @@
       "capabilities": ["wasi", "fs.read", "fs.write"],
       "authors": [{ "name": "The wago authors", "github": "wago-org" }],
       "contributors": ["achen", "rokafor", "msilva"],
-      "extensions": [
+      "subpackages": [
         {
           "import": "github.com/wago-org/wasi/p1",
           "id": "wago.wasi.preview1",
@@ -119,7 +119,7 @@
       "capabilities": ["compiler.codegen"],
       "authors": [{ "name": "Jordan Reyes", "github": "jreyes" }],
       "contributors": ["nkoval"],
-      "extensions": [
+      "subpackages": [
         {
           "import": "github.com/wago-org/dragline-x64",
           "id": "wago.codegen.dragline",
@@ -166,7 +166,7 @@
       "capabilities": ["metrics.write"],
       "authors": [{ "name": "M. Silva", "github": "msilva" }],
       "contributors": ["jreyes"],
-      "extensions": [
+      "subpackages": [
         {
           "import": "github.com/wago-org/wago-trace",
           "id": "wago.devtools.trace",
@@ -213,7 +213,7 @@
       "capabilities": ["net.outbound", "http.client"],
       "authors": [{ "name": "R. Okafor", "github": "rokafor" }],
       "contributors": [],
-      "extensions": [
+      "subpackages": [
         {
           "import": "github.com/wago-org/host-http",
           "id": "wago.hostimports.http",
@@ -256,7 +256,7 @@
       "capabilities": [],
       "authors": [{ "name": "A. Chen", "github": "achen" }],
       "contributors": ["msilva"],
-      "extensions": [
+      "subpackages": [
         {
           "import": "github.com/wago-org/memfmt",
           "id": "wago.memory.memfmt",
@@ -299,7 +299,7 @@
       "capabilities": [],
       "authors": [{ "name": "Devon M.", "github": "devon" }],
       "contributors": [],
-      "extensions": [
+      "subpackages": [
         {
           "import": "github.com/wago-org/wat-loader",
           "id": "wago.formats.wat",

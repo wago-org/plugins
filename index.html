@@ -28,9 +28,13 @@
         <link rel="stylesheet" href="assets/css/tokens.css" />
 
         <script>
-            // Where the Go backend lives. Override here if it's not the `api.`
-            // sibling of this host. Leave it and the site still works fully in a
-            // local-only demo mode (sign-in/stars/reviews faked in the browser).
+            // Where the Go backend lives.
+            //   • Local dev: leave apiBase unset — the frontend auto-targets
+            //     http://localhost:8787, and falls back to local-demo mode
+            //     (sign-in/stars/reviews faked in the browser) if it's not up.
+            //   • Production: uncomment the line below so the deployed site talks
+            //     to the real backend. It must be HTTPS and match the backend's
+            //     FRONTEND_URL / OAuth callback host.
             window.WAGO_CONFIG = {
                 // apiBase: "https://api.pkg.wago.sh",
             };

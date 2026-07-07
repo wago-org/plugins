@@ -23,9 +23,11 @@ type Compatibility struct {
 	Platforms []string          `json:"platforms,omitempty"`
 }
 
-// Extension is one extension exposed by a package's wago-plugin.json manifest.
-// Import is the Go import path of the extension; ID is its stable dotted id.
-type Extension struct {
+// Subpackage is one subpackage exposed by a package's wago-plugin.json manifest.
+// Import is the Go import path of the subpackage; ID is its stable dotted id.
+// (Each subpackage provides a wago Extension, but at the registry/manifest layer
+// we call the shipped unit a "subpackage".)
+type Subpackage struct {
 	Import      string        `json:"import"`
 	ID          string        `json:"id"`
 	Name        string        `json:"name"`
@@ -37,11 +39,11 @@ type Extension struct {
 }
 
 // Manifest is a wago-plugin/v1 document: a Go module that ships one or more
-// extensions. It is what a publisher POSTs to /api/publish.
+// subpackages. It is what a publisher POSTs to /api/publish.
 type Manifest struct {
-	Schema     string      `json:"schema"`
-	Module     string      `json:"module"`
-	Extensions []Extension `json:"extensions"`
+	Schema      string       `json:"schema"`
+	Module      string       `json:"module"`
+	Subpackages []Subpackage `json:"subpackages"`
 }
 
 // Author is a named author with an optional GitHub login.
@@ -59,6 +61,19 @@ type Version struct {
 	UnpackedKB   int    `json:"unpackedKB"`
 	Latest       bool   `json:"latest"`
 	InstallShare int    `json:"installShare"`
+	Deprecated   bool   `json:"deprecated,omitempty"`
+}
+
+// APIToken is a personal access token used by the CLI / CI to authenticate API
+// requests. Only the SHA-256 hash of the token is stored; the plaintext is shown
+// once at creation.
+type APIToken struct {
+	ID         string `json:"id"`
+	UserID     string `json:"userId"`
+	Hash       string `json:"hash"`
+	Label      string `json:"label"`
+	CreatedAt  string `json:"createdAt"`
+	LastUsedAt string `json:"lastUsedAt"`
 }
 
 // Issue is a pass-through repository issue surfaced on a package page.
@@ -109,35 +124,36 @@ type Comment struct {
 // "version"/"latestVersion") are added by the API layer at response time and are
 // not stored here.
 type Package struct {
-	Name            string        `json:"name"` // module path
-	Short           string        `json:"short"`
-	Description     string        `json:"description"`
-	Category        string        `json:"category"`
-	Tags            []string      `json:"tags"`
-	Keywords        []string      `json:"keywords"`
-	License         string        `json:"license"`
-	Repository      string        `json:"repository"`
-	Homepage        string        `json:"homepage"`
-	Stability       Stability     `json:"stability"`
-	Verified        bool          `json:"verified"`
-	Official        bool          `json:"official"`
-	OwnerLogin      string        `json:"ownerLogin"`
-	Compat          Compatibility `json:"compatibility"`
-	Capabilities    []string      `json:"capabilities"`
-	Authors         []Author      `json:"authors"`
-	Contributors    []string      `json:"contributors"`
-	Extensions      []Extension   `json:"extensions"`
-	Rating          float64       `json:"rating"`
-	RatingCount     int           `json:"ratingCount"`
-	Score           int           `json:"score"`
-	InstallBaseWeek int           `json:"installBaseWeek"`
-	Stars           int           `json:"stars"` // seed baseline; registry stars accrue on top
-	Forks           int           `json:"forks"`
-	UnpackedKB      int           `json:"unpackedKB"`
-	Versions        []Version     `json:"versions"`
-	Issues          []Issue       `json:"issues"`
-	CreatedAt       string        `json:"createdAt"`
-	UpdatedAt       string        `json:"updatedAt"`
+	Name              string        `json:"name"` // module path
+	Short             string        `json:"short"`
+	Description       string        `json:"description"`
+	Category          string        `json:"category"`
+	Tags              []string      `json:"tags"`
+	Keywords          []string      `json:"keywords"`
+	License           string        `json:"license"`
+	Repository        string        `json:"repository"`
+	Homepage          string        `json:"homepage"`
+	Stability         Stability     `json:"stability"`
+	Verified          bool          `json:"verified"`
+	Official          bool          `json:"official"`
+	OwnerLogin        string        `json:"ownerLogin"`
+	DeprecatedMessage string        `json:"deprecatedMessage,omitempty"`
+	Compat            Compatibility `json:"compatibility"`
+	Capabilities      []string      `json:"capabilities"`
+	Authors           []Author      `json:"authors"`
+	Contributors      []string      `json:"contributors"`
+	Subpackages       []Subpackage  `json:"subpackages"`
+	Rating            float64       `json:"rating"`
+	RatingCount       int           `json:"ratingCount"`
+	Score             int           `json:"score"`
+	InstallBaseWeek   int           `json:"installBaseWeek"`
+	Stars             int           `json:"stars"` // seed baseline; registry stars accrue on top
+	Forks             int           `json:"forks"`
+	UnpackedKB        int           `json:"unpackedKB"`
+	Versions          []Version     `json:"versions"`
+	Issues            []Issue       `json:"issues"`
+	CreatedAt         string        `json:"createdAt"`
+	UpdatedAt         string        `json:"updatedAt"`
 }
 
 // LatestVersion returns the version marked latest, falling back to the first

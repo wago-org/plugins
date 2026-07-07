@@ -33,6 +33,7 @@ export interface AppState {
     issueFilter: "open" | "closed";
     starred: boolean;
     starCount: number;
+    bookmarked: boolean;
 
     // comments
     comments: Comment[];
@@ -75,6 +76,7 @@ export const state: AppState = {
     issueFilter: "open",
     starred: false,
     starCount: 0,
+    bookmarked: false,
 
     comments: [],
     commentsLoading: false,

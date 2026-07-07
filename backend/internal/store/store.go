@@ -18,12 +18,19 @@ type Store interface {
 	// GetPackage matches by short id first, then by full module name.
 	GetPackage(id string) (model.Package, bool)
 	UpsertPackage(p model.Package) error
+	DeletePackage(short string) error
 	PackageCount() int
 
 	// Users.
 	GetUser(id string) (model.User, bool)
 	GetUserByLogin(login string) (model.User, bool)
 	UpsertUser(u model.User) error
+
+	// API tokens (CLI / CI auth). CreateToken returns the one-time plaintext.
+	CreateToken(userID, label string) (plaintext string, tok model.APIToken, err error)
+	UserByToken(plaintext string) (model.User, bool)
+	ListTokens(userID string) []model.APIToken
+	RevokeToken(userID, tokenID string) error
 
 	// Stars (keyed by package short id).
 	StarCount(short string) int

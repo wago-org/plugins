@@ -57,39 +57,66 @@ Import direction (no cycles): `api` → {`model`,`store`,`auth`,`httpx`,`config`
 | `DEV_MODE`             | `false`                    | When `true`, cookies are not marked `Secure` (so localhost http works). |
 | `COOKIE_DOMAIN`        | *(empty)*                  | Optional cookie `Domain` for production (e.g. `.wago.sh`). Leave empty in dev. |
 
-See [`.env.example`](./.env.example) for a copy-paste template.
+### Env files
+
+Two environment-specific templates live here (committed); their real
+counterparts (`dev.env`, `prod.env`) hold secrets and are git-ignored:
+
+| Template | Copy to | Used by |
+|----------|---------|---------|
+| [`dev.env.example`](./dev.env.example)  | `dev.env`  | `make dev` / `make api` (local) |
+| [`prod.env.example`](./prod.env.example) | `prod.env` | the server (systemd `EnvironmentFile`) |
+
+`make env` creates both from the examples. `make api` loads `dev.env` by
+default; run `make api ENV_FILE=prod.env` to test the prod config locally.
 
 ## Registering the GitHub OAuth app
 
+Sign-in uses a **GitHub OAuth App** (not a GitHub App) — the flow only reads the
+user's public profile and email. A classic OAuth App has a single callback URL,
+so use **two apps**: one for dev, one for prod.
+
 1. <https://github.com/settings/developers> → **OAuth Apps** → **New OAuth App**.
-2. **Authorization callback URL** must equal `OAUTH_REDIRECT_URL`
-   (dev: `http://localhost:8787/auth/github/callback`).
+2. **Authorization callback URL** must equal `OAUTH_REDIRECT_URL` exactly:
+   - dev app  → `http://localhost:8787/auth/github/callback`
+   - prod app → `https://api.pkg.wago.sh/auth/github/callback`
 3. Copy the **Client ID** and generate a **Client secret** into
-   `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
-4. The login flow requests the scopes `read:user user:email`.
+   `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` in the matching env file.
+4. The login flow requests the scopes `read:user user:email` (set in code; no app
+   config needed).
+
+For production, also set `SESSION_SECRET` (`openssl rand -hex 32`),
+`DEV_MODE=false`, and `COOKIE_DOMAIN=.wago.sh` so the session cookie is shared
+between `pkg.wago.sh` (site) and `api.pkg.wago.sh` (API).
 
 ## Running locally
 
-```sh
-DEV_MODE=true \
-GITHUB_CLIENT_ID=xxxx \
-GITHUB_CLIENT_SECRET=yyyy \
-OAUTH_REDIRECT_URL=http://localhost:8787/auth/github/callback \
-FRONTEND_URL=http://localhost:8000 \
-SESSION_SECRET=dev-secret \
-PACKAGES_FILE=../data/packages.json \
-go run ./cmd/registry
-```
-
-Then open `http://localhost:8787/auth/github/login` to start the OAuth flow.
-
-Build / vet / format:
+From the repo root:
 
 ```sh
-go build ./...
-go vet ./...
-gofmt -l .
+make env      # once: writes backend/dev.env + backend/prod.env
+# edit backend/dev.env → GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
+make dev      # backend + tsc --watch + static site together
 ```
+
+Or the backend alone: `make api` (loads `dev.env`). Then
+`http://localhost:8787/auth/github/login` starts the OAuth flow.
+
+Build / vet / format: `make build-api`, `make vet`, `make fmt` (or the raw
+`go build ./...`, `go vet ./...`, `gofmt -l .`).
+
+## Applying changes
+
+- **Backend env** (`.env`/secrets): restart the process so it re-reads the file.
+  Local: Ctrl-C, `make api`. Prod: edit `prod.env`, `sudo systemctl restart wago-registry`.
+- **Backend code:** rebuild and restart. Local: `make api` re-runs `go run`. Prod:
+  `git pull && make build-api && sudo systemctl restart wago-registry` (or redeploy the binary).
+- **Frontend code or `apiBase`:** rebuild and redeploy. Local: `make build` (or
+  `make watch`) then refresh. Prod: push to `main` — the Pages workflow rebuilds
+  `dist/` and publishes it.
+- **Seed index (`data/packages.json`):** only imported into an *empty* store. To
+  re-seed after editing it, clear the store first: `make reset-store` (⚠ drops
+  user data), then restart. Existing packages are otherwise managed via `POST /api/publish`.
 
 ## Endpoints
 
@@ -119,6 +146,18 @@ registry stars), `starred` (only when authenticated), `installsWeek`,
 | `POST`            | `/api/packages/{name}/comments`   | yes  | Body `{body, parentId?}` (1–4000 chars). |
 | `DELETE`          | `/api/comments/{id}`              | yes  | Author or package owner only → `{ok:true}`. |
 | `POST`            | `/api/publish`                    | yes  | Create/update a package from a manifest + release (see below). |
+| `DELETE`          | `/api/packages/{name}`            | own  | Unpublish the whole package (owner only). |
+| `DELETE`          | `/api/packages/{name}/versions/{version}` | own | Unpublish one version; removes the package if it was the last. |
+| `POST`            | `/api/packages/{name}/deprecate`  | own  | Body `{message?, version?, undo?}`. Deprecate the package (sets `deprecatedMessage`), or a specific `version` (`deprecated:true`), or reverse with `undo:true`. |
+| `GET`             | `/auth/cli/login`                 | no   | `?port=&state=` → GitHub OAuth, then 302 to `http://127.0.0.1:<port>/callback?token=…&state=…` (CLI loopback login). |
+| `POST`            | `/api/tokens`                     | yes  | Mint an API token → `{token, id, label, createdAt}` (plaintext shown once). |
+| `GET`             | `/api/tokens`                     | yes  | List the caller's tokens (hashes omitted). |
+| `DELETE`          | `/api/tokens/{id}`                | yes  | Revoke one of the caller's tokens. |
+
+**Auth column:** `yes` = a valid session cookie **or** `Authorization: Bearer <token>`;
+`own` = authenticated **and** the package's owner. API tokens (minted at
+`/api/tokens` or via the CLI loopback login) let the `wago` CLI and CI publish
+without a browser session.
 
 > **Note on module names in the URL.** `{name}` matches a single path segment, so
 > a full module path with slashes cannot appear in the URL — the frontend uses the

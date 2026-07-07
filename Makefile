@@ -9,6 +9,10 @@ WEB_PORT   ?= 8000
 API_PORT   ?= 8787
 FRONTEND_URL ?= http://localhost:$(WEB_PORT)
 
+# Which env file the backend loads (relative to backend/). Override for prod:
+#   make api ENV_FILE=prod.env
+ENV_FILE   ?= dev.env
+
 # npx runs the locally-installed tsc; python serves the static files.
 TSC   := npx tsc
 SERVE := python3 -m http.server $(WEB_PORT)
@@ -37,13 +41,16 @@ install: ## Install deps (npm + go modules)
 	cd backend && go mod download
 
 .PHONY: env
-env: ## Create backend/.env from the example (edit it to enable GitHub login)
-	@if [ -f backend/.env ]; then \
-		echo "backend/.env already exists — leaving it alone"; \
-	else \
-		cp backend/.env.example backend/.env; \
-		echo "wrote backend/.env — fill in GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET to enable real sign-in"; \
-	fi
+env: ## Create backend/{dev,prod}.env from the examples (edit them for GitHub login)
+	@for e in dev prod; do \
+		if [ -f backend/$$e.env ]; then \
+			echo "backend/$$e.env exists — leaving it alone"; \
+		else \
+			cp backend/$$e.env.example backend/$$e.env; \
+			echo "wrote backend/$$e.env"; \
+		fi; \
+	done
+	@echo "→ fill in GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET (and a SESSION_SECRET for prod)"
 
 ## ── run ──────────────────────────────────────────────────────────────────────
 
@@ -66,10 +73,11 @@ watch: ## Recompile TS on save (run alongside `make web` in another terminal)
 	$(TSC) --watch --preserveWatchOutput
 
 .PHONY: api
-api: ## Run the Go backend at :$(API_PORT) (reads backend/.env if present)
+api: ## Run the Go backend at :$(API_PORT) (loads backend/$(ENV_FILE))
 	@mkdir -p backend/data
 	@cd backend && \
-		if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
+		if [ -f $(ENV_FILE) ]; then set -a; . ./$(ENV_FILE); set +a; \
+		else echo "note: backend/$(ENV_FILE) not found — using defaults (run 'make env')"; fi; \
 		DEV_MODE=$${DEV_MODE:-true} \
 		PORT=$${PORT:-$(API_PORT)} \
 		FRONTEND_URL=$${FRONTEND_URL:-$(FRONTEND_URL)} \

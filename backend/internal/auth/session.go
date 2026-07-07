@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/wago-org/registry-backend/internal/config"
@@ -139,6 +140,47 @@ func (s *Sessions) NewStateCookie(state string) *http.Cookie {
 	}
 }
 
+// CLICookieName carries the CLI-login loopback context (port|state) across the
+// OAuth round-trip so the callback knows to mint a token and redirect locally.
+const CLICookieName = "wago_cli"
+
+// NewCLICookie signs the CLI-login context (an opaque "port|state" string).
+func (s *Sessions) NewCLICookie(data string) *http.Cookie {
+	body, _ := json.Marshal(payload{UID: data, Exp: time.Now().Add(oauthStateTTL).Unix()})
+	return &http.Cookie{
+		Name:     CLICookieName,
+		Value:    sign(body, s.secret),
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   !s.devMode,
+		MaxAge:   int(oauthStateTTL / time.Second),
+	}
+}
+
+// CLIContext returns the signed CLI-login context, or ("", false) if absent or
+// invalid.
+func (s *Sessions) CLIContext(r *http.Request) (string, bool) {
+	c, err := r.Cookie(CLICookieName)
+	if err != nil {
+		return "", false
+	}
+	body, err := verify(c.Value, s.secret)
+	if err != nil {
+		return "", false
+	}
+	var p payload
+	if err := json.Unmarshal(body, &p); err != nil || time.Now().Unix() > p.Exp {
+		return "", false
+	}
+	return p.UID, true
+}
+
+// ClearCLICookie expires the CLI-login cookie.
+func (s *Sessions) ClearCLICookie() *http.Cookie {
+	return &http.Cookie{Name: CLICookieName, Path: "/", MaxAge: -1, Secure: !s.devMode, HttpOnly: true}
+}
+
 // VerifyState checks the OAuth state cookie against the state query parameter.
 func (s *Sessions) VerifyState(r *http.Request, state string) bool {
 	c, err := r.Cookie(StateCookieName)
@@ -160,8 +202,15 @@ func (s *Sessions) VerifyState(r *http.Request, state string) bool {
 }
 
 // CurrentUser returns the authenticated user for a request, or nil when there is
-// no valid, unexpired session.
+// no valid session. It accepts either a session cookie (browser) or an
+// "Authorization: Bearer <token>" API token (CLI / CI).
 func (s *Sessions) CurrentUser(r *http.Request) *model.User {
+	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		if u, ok := s.store.UserByToken(strings.TrimSpace(h[len("Bearer "):])); ok {
+			return &u
+		}
+		return nil
+	}
 	c, err := r.Cookie(SessionCookieName)
 	if err != nil {
 		return nil

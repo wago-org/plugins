@@ -2,6 +2,7 @@ package store
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ type doc struct {
 	Votes    map[string]map[string]string `json:"votes"`    // reviewID -> userID -> "up"|"down"
 	Comments map[string]model.Comment     `json:"comments"` // commentID -> comment
 	Installs map[string]map[string]int    `json:"installs"` // short -> YYYY-MM-DD -> count
+	Tokens   map[string]model.APIToken    `json:"tokens"`   // tokenID -> token (hash only)
 }
 
 // JSONStore is a Store backed by a single JSON file, guarded by an RWMutex and
@@ -66,6 +68,7 @@ func emptyDoc() doc {
 		Votes:    map[string]map[string]string{},
 		Comments: map[string]model.Comment{},
 		Installs: map[string]map[string]int{},
+		Tokens:   map[string]model.APIToken{},
 	}
 }
 
@@ -91,6 +94,9 @@ func (s *JSONStore) normalize() {
 	}
 	if s.doc.Installs == nil {
 		s.doc.Installs = map[string]map[string]int{}
+	}
+	if s.doc.Tokens == nil {
+		s.doc.Tokens = map[string]model.APIToken{}
 	}
 }
 
@@ -154,11 +160,117 @@ func (s *JSONStore) UpsertPackage(p model.Package) error {
 	return s.persistLocked()
 }
 
+// DeletePackage removes a package and its associated stars, reviews, votes,
+// comments and install history. Returns nil even if the package was absent.
+func (s *JSONStore) DeletePackage(short string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.doc.Packages, short)
+	delete(s.doc.Stars, short)
+	delete(s.doc.Installs, short)
+	for id, r := range s.doc.Reviews {
+		if r.PackageShort == short {
+			delete(s.doc.Reviews, id)
+			delete(s.doc.Votes, id)
+		}
+	}
+	for id, c := range s.doc.Comments {
+		if c.PackageShort == short {
+			delete(s.doc.Comments, id)
+		}
+	}
+	return s.persistLocked()
+}
+
 // PackageCount returns the number of stored packages.
 func (s *JSONStore) PackageCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.doc.Packages)
+}
+
+// --- API tokens ---
+
+// hashToken returns the hex SHA-256 of a plaintext token.
+func hashToken(plaintext string) string {
+	sum := sha256.Sum256([]byte(plaintext))
+	return hex.EncodeToString(sum[:])
+}
+
+// CreateToken mints a token for a user, storing only its hash and returning the
+// one-time plaintext (prefixed "wgo_").
+func (s *JSONStore) CreateToken(userID, label string) (string, model.APIToken, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", model.APIToken{}, err
+	}
+	plaintext := "wgo_" + hex.EncodeToString(b)
+	if label == "" {
+		label = "wago-cli"
+	}
+	tok := model.APIToken{
+		ID:        newID(),
+		UserID:    userID,
+		Hash:      hashToken(plaintext),
+		Label:     label,
+		CreatedAt: nowRFC3339(),
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.doc.Tokens[tok.ID] = tok
+	if err := s.persistLocked(); err != nil {
+		return "", model.APIToken{}, err
+	}
+	return plaintext, tok, nil
+}
+
+// UserByToken resolves a plaintext token to its owning user, updating LastUsedAt.
+func (s *JSONStore) UserByToken(plaintext string) (model.User, bool) {
+	if plaintext == "" {
+		return model.User{}, false
+	}
+	h := hashToken(plaintext)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, t := range s.doc.Tokens {
+		if t.Hash == h {
+			u, ok := s.doc.Users[t.UserID]
+			if !ok {
+				return model.User{}, false
+			}
+			t.LastUsedAt = nowRFC3339()
+			s.doc.Tokens[id] = t
+			_ = s.persistLocked()
+			return u, true
+		}
+	}
+	return model.User{}, false
+}
+
+// ListTokens returns a user's tokens (hashes zeroed for safety), newest first.
+func (s *JSONStore) ListTokens(userID string) []model.APIToken {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []model.APIToken
+	for _, t := range s.doc.Tokens {
+		if t.UserID == userID {
+			t.Hash = ""
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt > out[j].CreatedAt })
+	return out
+}
+
+// RevokeToken deletes a token, but only if it belongs to the given user.
+func (s *JSONStore) RevokeToken(userID, tokenID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if t, ok := s.doc.Tokens[tokenID]; ok && t.UserID == userID {
+		delete(s.doc.Tokens, tokenID)
+		return s.persistLocked()
+	}
+	return nil
 }
 
 // --- Users ---

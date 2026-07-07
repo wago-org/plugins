@@ -1,5 +1,5 @@
 // Shared data shapes for the registry frontend. These mirror the wago-plugin/v1
-// manifest model (a package is a Go module shipping one or more extensions) plus
+// manifest model (a package is a Go module shipping one or more subpackages) plus
 // the derived fields the Go backend adds. The static data/packages.json ships
 // the same shapes (minus derived fields, which the frontend fills in for the
 // no-backend demo mode).
@@ -11,7 +11,7 @@ export interface Compatibility {
     platforms: string[];
 }
 
-export interface Extension {
+export interface Subpackage {
     import: string;
     id: string;
     name: string;
@@ -35,6 +35,7 @@ export interface VersionRow {
     unpackedKB: number;
     latest: boolean;
     installShare: number;
+    deprecated?: boolean;
 }
 
 export interface Issue {
@@ -92,11 +93,12 @@ export interface Package {
     verified: boolean;
     official?: boolean;
     ownerLogin?: string;
+    deprecatedMessage?: string;
     compatibility: Compatibility;
     capabilities: string[];
     authors: Author[];
     contributors: string[];
-    extensions: Extension[];
+    subpackages: Subpackage[];
 
     version: string; // latest version, convenience for cards
     latestVersion: string;

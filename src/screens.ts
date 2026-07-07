@@ -5,12 +5,11 @@
 import type { AppState } from "./state.js";
 import type {
     Comment,
-    Compatibility,
-    Extension,
     Issue,
     Package,
     Review,
     Stability,
+    Subpackage,
     VersionRow,
 } from "./types.js";
 import { compactNum, esc, escAttr, relativeDate, shortHash, sparkline, starStr, tier } from "./util.js";
@@ -374,13 +373,6 @@ export function filterPackages(s: AppState): Package[] {
 
 export function packageScreen(s: AppState): string {
     const p = s.pkg!;
-    const keywords = (p.keywords || p.tags)
-        .map(
-            (k) =>
-                `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.lilac};background:${C.panel};border:1px solid ${C.line};padding:4px 10px;border-radius:100px">${esc(k)}</span>`,
-        )
-        .join("");
-
     const openIssueCount = (p.issues || []).filter((i) => i.state === "open").length;
     const tabs = [
         { k: "readme", l: "Readme" },
@@ -395,42 +387,30 @@ export function packageScreen(s: AppState): string {
         })
         .join("");
 
-    const badges = `${p.verified ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.green};padding:5px 11px;border-radius:100px;margin-top:8px">✦ verified</span>` : ""}<span style="margin-top:8px">${stabilityPill(p.stability)}</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};border:1px solid ${C.line2};padding:5px 11px;border-radius:100px;margin-top:8px">${esc(p.version)}</span>`;
+    const badges = `${p.verified ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.green};padding:5px 11px;border-radius:100px">✦ verified</span>` : ""}<span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};border:1px solid ${C.line2};padding:5px 11px;border-radius:100px">${esc(p.version)}</span>`;
 
-    const starBtnBg = s.starred ? C.panel : "transparent";
-    const starBtnBorder = s.starred ? C.lilac : C.line2;
-    const starIconColor = s.starred ? C.lilac : C.muted;
-    const starLabel = s.starred ? "Starred" : "Star";
+    // bookmark (save-for-later, per-browser) + star, to the right of the badges
+    const bm = s.bookmarked;
+    const bookmarkBtn = `<button data-act="bookmark" title="${bm ? "Saved" : "Save for later"}" style="display:inline-flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:${C.text};background:${bm ? C.panel : "transparent"};border:1px solid ${bm ? C.lilac : C.line2};padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .15s">${bookmarkIcon(15, bm ? C.lilac : C.muted, bm)} ${bm ? "Saved" : "Save"}</button>`;
+    const starBtn = `<button data-act="star" style="display:inline-flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:${C.text};background:${s.starred ? C.panel : "transparent"};border:1px solid ${s.starred ? C.lilac : C.line2};padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .15s"><span style="font-size:15px;color:${s.starred ? C.lilac : C.muted}">★</span> ${s.starred ? "Starred" : "Star"} <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;background:${C.deep};padding:2px 8px;border-radius:6px">${s.starCount.toLocaleString()}</span></button>`;
 
     return `
 <div style="padding:28px 0 72px">
   <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="#/" data-act="home" style="text-decoration:none;color:${C.muted}">plugins</a> <span style="color:${C.line2}">/</span> <a href="#/search" data-act="cat" data-arg="${escAttr(p.category)}" style="text-decoration:none;color:${C.muted}">${esc(p.category)}</a> <span style="color:${C.line2}">/</span> <span style="color:${C.lilac}">${esc(p.short)}</span></div>
 
-  <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
     <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.name)}</h1>
     ${badges}
+    <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}</div>
   </div>
-  <p style="font-size:17px;line-height:1.6;color:${C.soft};margin:0 0 16px;max-width:680px">${esc(p.description)}</p>
-  <div style="display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap">
-    <button data-act="star" style="display:inline-flex;align-items:center;gap:9px;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.text};background:${starBtnBg};border:1px solid ${starBtnBorder};padding:9px 16px;border-radius:9px;cursor:pointer;transition:all .15s">
-      <span style="font-size:15px;color:${starIconColor}">★</span> ${starLabel}
-      <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;background:${C.deep};padding:2px 9px;border-radius:6px;margin-left:2px">${s.starCount.toLocaleString()}</span>
-    </button>
-    <button data-act="tab" data-arg="issues" style="display:inline-flex;align-items:center;gap:9px;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:9px 16px;border-radius:9px;cursor:pointer">
-      <span style="color:${C.green}">◉</span> Issues
-      <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;background:${C.deep};padding:2px 9px;border-radius:6px;margin-left:2px">${openIssueCount}</span>
-    </button>
-    <span style="width:1px;height:22px;background:${C.line}"></span>
-    <span style="display:flex;align-items:center;gap:9px">
-      <span style="font-size:18px;letter-spacing:2px;color:${tier(p.score)}">${starStr(p.rating)}</span>
-      <span style="font-weight:800;font-size:16px;color:${C.text}">${p.rating}</span>
-      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted}">${p.ratingCount}</span>
-    </span>
+  <p style="font-size:17px;line-height:1.6;color:${C.soft};margin:0 0 14px;max-width:680px">${esc(p.description)}</p>
+  <div style="display:flex;align-items:center;gap:18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin:0 0 28px;flex-wrap:wrap">
+    <a href="#/p/${escAttr(p.short)}" data-act="tab" data-arg="reviews" style="text-decoration:none;display:inline-flex;align-items:center;gap:7px"><span style="font-size:14px;letter-spacing:1px;color:${tier(p.score)}">${starStr(p.rating)}</span><span style="color:${C.dim}">${p.rating}</span><span>${p.ratingCount} ratings</span></a>
+    <span>${p.subpackages.length} subpackage${p.subpackages.length === 1 ? "" : "s"}</span>
+    <span>${p.license || "—"}</span>
   </div>
-  ${enginePills(p)}
-  ${capabilityPills(p)}
-  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:28px">${keywords}</div>
 
+  ${p.deprecatedMessage ? deprecationBanner(p.deprecatedMessage) : ""}
   <div style="display:grid;grid-template-columns:1fr 300px;gap:36px;align-items:start">
     <main style="min-width:0">
       <div style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}</div>
@@ -441,43 +421,11 @@ export function packageScreen(s: AppState): string {
 </div>`;
 }
 
-function enginePills(p: Package): string {
-    const engines = p.compatibility?.engines || {};
-    const order = ["wago", "tinygo", "go"];
-    const keys = Object.keys(engines).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    if (!keys.length && !(p.compatibility?.platforms || []).length) return "";
-    const pills = keys
-        .map((k) => {
-            const known = k === "tinygo";
-            const color = known ? C.pink : C.green;
-            const bg = known ? "#3a1f34" : "#16322c";
-            const border = known ? "#6b3453" : "#2e5a48";
-            const dot = known ? "#ff9ec4" : C.green;
-            const val = engines[k] === "*" ? "any" : engines[k];
-            return `<span style="display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color};background:${bg};border:1px solid ${border};padding:5px 11px;border-radius:100px"><span style="width:7px;height:7px;border-radius:50%;background:${dot}"></span> ${esc(k)} ${esc(val)}</span>`;
-        })
-        .join("");
-    const platforms = (p.compatibility?.platforms || [])
-        .map(
-            (pf) =>
-                `<span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.dim};background:${C.panel};border:1px solid ${C.line};padding:5px 10px;border-radius:100px">${esc(pf)}</span>`,
-        )
-        .join("");
-    const platformsBlock = platforms
-        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">·</span>${platforms}`
-        : `<span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">· platform-independent</span>`;
-    return `<div style="display:flex;align-items:center;gap:9px;margin:0 0 14px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">engines</span>${pills}${platformsBlock}</div>`;
-}
-
-function capabilityPills(p: Package): string {
-    if (!p.capabilities?.length) return "";
-    const pills = p.capabilities
-        .map(
-            (c) =>
-                `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.pink};background:#2a1230;border:1px solid #6b3453;padding:4px 10px;border-radius:6px">⚑ ${esc(c)}</span>`,
-        )
-        .join("");
-    return `<div style="display:flex;align-items:center;gap:9px;margin:0 0 16px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">capabilities</span>${pills}</div>`;
+function deprecationBanner(message: string): string {
+    return `<div style="display:flex;gap:12px;align-items:flex-start;background:#3a1f34;border:1px solid #6b3453;border-radius:12px;padding:14px 18px;margin:0 0 24px">
+    <span style="color:#ffb4d2;font-size:16px;flex-shrink:0">⚠</span>
+    <div><span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:#ffb4d2;text-transform:uppercase">Deprecated</span><p style="font-size:14px;line-height:1.55;color:#f0c9dc;margin:4px 0 0">${esc(message)}</p></div>
+  </div>`;
 }
 
 function pkgTabBody(s: AppState): string {
@@ -497,7 +445,7 @@ function pkgTabBody(s: AppState): string {
 
 function readmeTab(s: AppState): string {
     const p = s.pkg!;
-    const code = `<span style="color:#6f64a8"># add the extension to your custom wago build</span>
+    const code = `<span style="color:#6f64a8"># add the subpackage to your custom wago build</span>
 $ wago plugin add ${esc(p.name)}
 
 <span style="color:#6f64a8"># or in Go — register the extension on the runtime</span>
@@ -515,78 +463,32 @@ rt.<span style="color:${C.lilac}">Use</span>(${esc(p.short.replace(/[^a-z0-9]/gi
     <pre style="margin:0;padding:18px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.85;color:#e7e0ff;overflow-x:auto">${code}</pre>
   </div>
 
-  ${extensionsBlock(p)}
-  ${compatibilityBlock(p.compatibility, p.capabilities)}
+  ${subpackagesBlock(p)}
 </div>`;
 }
 
-function extensionsBlock(p: Package): string {
-    if (!p.extensions?.length) return "";
-    const rows = p.extensions
+function subpackagesBlock(p: Package): string {
+    if (!p.subpackages?.length) return "";
+    const rows = p.subpackages
         .map(
-            (e: Extension) => `
-      <div style="background:${C.deep};border:1px solid ${C.line};border-radius:12px;padding:16px 18px">
+            (e: Subpackage) => `
+      <a href="https://pkg.go.dev/${escAttr(e.import)}" target="_blank" rel="noopener" class="ext-card" style="text-decoration:none;display:block;background:${C.deep};border:1px solid ${C.line};border-radius:12px;padding:16px 18px">
         <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.text}">${esc(e.id)}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.lilac}">${esc(e.id)}</span>
           ${stabilityPill(e.stability)}
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">v${esc(e.version)}</span>
+          <span style="margin-left:auto;color:${C.muted};font-size:12px">↗ docs</span>
         </div>
         <p style="font-size:13.5px;line-height:1.55;color:${C.soft};margin:0 0 10px">${esc(e.description)}</p>
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};margin-bottom:8px">import <span style="color:${C.lilac}">"${esc(e.import)}"</span></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">${tagPills(e.tags || [])}</div>
-      </div>`,
+      </a>`,
         )
         .join("");
     return `
-  <h3 style="font-weight:700;font-size:18px;margin:30px 0 12px">Extensions <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.muted};font-weight:500">${p.extensions.length}</span></h3>
-  <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 14px">This module ships the following wago extensions. Each is independently importable and version-stamped.</p>
+  <h3 style="font-weight:700;font-size:18px;margin:30px 0 12px">Subpackages <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.muted};font-weight:500">${p.subpackages.length}</span></h3>
+  <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 14px">This module ships the following subpackages — each is an independently importable wago extension, version-stamped and documented on its own page.</p>
   <div style="display:flex;flex-direction:column;gap:12px">${rows}</div>`;
-}
-
-function compatibilityBlock(compat: Compatibility, capabilities: string[]): string {
-    const engines = compat?.engines || {};
-    const order = ["wago", "tinygo", "go"];
-    const keys = Object.keys(engines).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    const engineRows = keys
-        .map(
-            (k, i) => `
-        <div style="display:grid;grid-template-columns:120px 1fr;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};align-items:center">
-          <div style="padding:11px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#e7e0ff">${esc(k)}</div>
-          <div style="padding:11px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:${engines[k] === "*" ? C.green : C.dim}">${esc(engines[k] === "*" ? "any version" : engines[k])}</div>
-        </div>`,
-        )
-        .join("");
-    const platforms = (compat?.platforms || []).length
-        ? (compat.platforms || [])
-              .map(
-                  (pf) =>
-                      `<span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.dim};background:${C.panel};border:1px solid ${C.line};padding:4px 10px;border-radius:100px">${esc(pf)}</span>`,
-              )
-              .join("")
-        : `<span style="font-size:13px;color:${C.muted}">platform-independent (pure Go)</span>`;
-    const caps = capabilities?.length
-        ? capabilities
-              .map(
-                  (c) =>
-                      `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.pink};background:#2a1230;border:1px solid #6b3453;padding:4px 10px;border-radius:6px">⚑ ${esc(c)}</span>`,
-              )
-              .join("")
-        : `<span style="font-size:13px;color:${C.muted}">no host capabilities requested</span>`;
-
-    return `
-  <h3 style="font-weight:700;font-size:18px;margin:30px 0 12px">Compatibility</h3>
-  <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 14px">Engine constraints are semver ranges the runtime checks at <code style="font-family:'JetBrains Mono',monospace;color:${C.lilac};background:${C.panel};padding:2px 6px;border-radius:5px;font-size:12px">Use</code> time. TinyGo support means the extension is built from the stack-form host-func API.</p>
-  <div style="border:1px solid ${C.line};border-radius:12px;overflow:hidden;margin-bottom:16px">
-    <div style="display:grid;grid-template-columns:120px 1fr;background:${C.deep};border-bottom:1px solid ${C.line}">
-      <div style="padding:11px 16px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;color:${C.muted};text-transform:uppercase">Engine</div>
-      <div style="padding:11px 16px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;color:${C.muted};text-transform:uppercase">Constraint</div>
-    </div>
-    ${engineRows || `<div style="padding:14px 16px;font-size:13px;color:${C.muted}">any engine</div>`}
-  </div>
-  <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:8px">
-    <div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;color:${C.muted};text-transform:uppercase;margin-bottom:8px">Platforms</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${platforms}</div></div>
-    <div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;color:${C.muted};text-transform:uppercase;margin-bottom:8px">Capabilities</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${caps}</div></div>
-  </div>`;
 }
 
 function reviewsTab(s: AppState): string {
@@ -832,6 +734,9 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
     const latest = v.latest
         ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:${C.bg};background:${C.green};padding:2px 7px;border-radius:100px">latest</span>`
         : "";
+    const deprecated = v.deprecated
+        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:#ffb4d2;background:#3a1f34;border:1px solid #6b3453;padding:2px 7px;border-radius:100px">deprecated</span>`
+        : "";
     const commit = v.commit
         ? `<a href="${escAttr(p.repository)}/commit/${escAttr(v.commit)}" target="_blank" rel="noopener" title="${escAttr(v.commit)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.lilac};background:${C.deep};border:1px solid ${C.line};padding:2px 7px;border-radius:6px">⑂ ${esc(shortHash(v.commit))}</a>`
         : "";
@@ -840,7 +745,7 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
               <div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.text}">${esc(v.version)}</span>
-                  ${latest}
+                  ${latest}${deprecated}
                 </div>
                 <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};margin-bottom:7px">${esc(relative(v.publishedAt))}</div>
                 ${commit}
@@ -868,22 +773,60 @@ function pkgSidebar(s: AppState): string {
     const installCmd = `wago plugin add ${p.name}`;
 
     const meta: [string, string][] = [
-        ["Latest", p.version],
-        ["License", p.license || "—"],
         ["Last publish", relative(p.updatedAt)],
         ["Unpacked size", p.unpackedKB ? `${p.unpackedKB} kB` : "—"],
-        ["Stability", p.stability],
-        ["Module", p.name],
+        ["Forks", (p.forks ?? 0).toLocaleString()],
+        ["Owner", p.ownerLogin ? `@${p.ownerLogin}` : "—"],
     ];
     const metaRows = meta
         .map(
             ([label, value], i) => `
         <div style="padding:15px 0;border-top:${i === 0 ? "none" : `1px solid ${C.line}`}">
           <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:6px">${esc(label)}</div>
-          <div style="font-size:${label === "Module" ? "12.5px" : "14.5px"};color:${C.text};font-weight:600;word-break:break-all;font-family:${label === "Module" ? "'JetBrains Mono',monospace" : "inherit"}">${esc(value)}</div>
+          <div style="font-size:14.5px;color:${C.text};font-weight:600;word-break:break-all">${esc(value)}</div>
         </div>`,
         )
         .join("");
+
+    // compatibility (engines + platforms)
+    const engines = p.compatibility?.engines || {};
+    const order = ["wago", "tinygo", "go"];
+    const engKeys = Object.keys(engines).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const engineRows = engKeys
+        .map(
+            (k) =>
+                `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0"><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.dim}">${esc(k)}</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${engines[k] === "*" ? C.green : C.text}">${esc(engines[k] === "*" ? "any" : engines[k])}</span></div>`,
+        )
+        .join("");
+    const platforms = p.compatibility?.platforms || [];
+    const compatSection = `
+      <div style="padding:15px 0;border-top:1px solid ${C.line}">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:8px">Compatibility</div>
+        ${engineRows || `<span style="font-size:13px;color:${C.muted}">any engine</span>`}
+        <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">${platforms.length ? platforms.map((pf) => esc(pf)).join(", ") : "platform-independent"}</div>
+      </div>`;
+
+    // capabilities
+    const capChips = (p.capabilities || [])
+        .map(
+            (c) =>
+                `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.pink};background:#2a1230;border:1px solid #6b3453;padding:3px 9px;border-radius:6px">⚑ ${esc(c)}</span>`,
+        )
+        .join("");
+    const capSection = capChips
+        ? `<div style="padding:15px 0;border-top:1px solid ${C.line}"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:10px">Capabilities</div><div style="display:flex;gap:6px;flex-wrap:wrap">${capChips}</div></div>`
+        : "";
+
+    // keywords — moved out of the header, npm-style at the bottom
+    const kwChips = (p.keywords || p.tags || [])
+        .map(
+            (k) =>
+                `<span data-act="kw" data-arg="${escAttr(k)}" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.lilac};background:${C.deep};border:1px solid ${C.line};padding:3px 9px;border-radius:100px;cursor:pointer">${esc(k)}</span>`,
+        )
+        .join("");
+    const kwSection = kwChips
+        ? `<div style="padding:15px 0;border-top:1px solid ${C.line}"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:10px">Keywords</div><div style="display:flex;gap:6px;flex-wrap:wrap">${kwChips}</div></div>`
+        : "";
 
     const authors = (p.authors || [])
         .map((a) => avatarSpan(a.name, (a.name || "?")[0].toUpperCase(), avatarBgFor(a.github || a.name), undefined, 34, 13))
@@ -894,7 +837,6 @@ function pkgSidebar(s: AppState): string {
                 `<a href="https://github.com/${escAttr(login)}" target="_blank" rel="noopener" title="${escAttr(login)}" style="text-decoration:none">${avatarSpan(login, login[0].toUpperCase(), avatarBgFor(login), undefined, 30, 11)}</a>`,
         )
         .join("");
-    const openIssueCount = (p.issues || []).filter((i) => i.state === "open").length;
     const weekLabel = compactNum(s.installSeries.slice(-7).reduce((a, b) => a + b.count, 0) || p.installsWeek);
 
     return `
@@ -921,6 +863,8 @@ function pkgSidebar(s: AppState): string {
         </div>
       </div>
       ${metaRows}
+      ${compatSection}
+      ${capSection}
       <div style="padding:15px 0;border-top:1px solid ${C.line}">
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:10px">Authors</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${authors || `<span style="font-size:13px;color:${C.muted}">—</span>`}</div>
@@ -933,23 +877,7 @@ function pkgSidebar(s: AppState): string {
       </div>`
               : ""
       }
-      <div style="padding:15px 0;border-top:1px solid ${C.line}">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:10px">GitHub</div>
-        <div style="display:flex;gap:8px">
-          <div style="flex:1;background:${C.deep};border:1px solid ${C.line};border-radius:9px;padding:9px 6px;text-align:center">
-            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.text}">${s.starCount.toLocaleString()}</div>
-            <div style="font-size:10.5px;color:${C.muted};margin-top:2px">★ stars</div>
-          </div>
-          <div style="flex:1;background:${C.deep};border:1px solid ${C.line};border-radius:9px;padding:9px 6px;text-align:center">
-            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.green}">${openIssueCount}</div>
-            <div style="font-size:10.5px;color:${C.muted};margin-top:2px">◉ issues</div>
-          </div>
-          <div style="flex:1;background:${C.deep};border:1px solid ${C.line};border-radius:9px;padding:9px 6px;text-align:center">
-            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.text}">${p.forks ?? 0}</div>
-            <div style="font-size:10.5px;color:${C.muted};margin-top:2px">⑂ forks</div>
-          </div>
-        </div>
-      </div>
+      ${kwSection}
       <a href="${escAttr(p.repository)}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};padding:11px;border-radius:10px">Repository ↗</a>
     </aside>`;
 }
@@ -996,6 +924,10 @@ export function authScreen(s: AppState): string {
 
 function githubIcon(size: number): string {
     return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${C.text}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="9" r="2.5"></circle><path d="M18 11.5v.5a3 3 0 0 1-3 3H8.5"></path><path d="M6 8.5v7"></path></svg>`;
+}
+
+function bookmarkIcon(size: number, color: string, filled: boolean): string {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${filled ? color : "none"}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
 }
 
 // ── account ──────────────────────────────────────────────────────────────────

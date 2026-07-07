@@ -43,9 +43,15 @@ func (a *App) NewRouter() http.Handler {
 
 	// Auth.
 	mux.HandleFunc("GET /auth/github/login", a.handleLogin)
+	mux.HandleFunc("GET /auth/cli/login", a.handleCLILogin)
 	mux.HandleFunc("GET /auth/github/callback", a.handleCallback)
 	mux.HandleFunc("POST /api/logout", a.handleLogout)
 	mux.HandleFunc("GET /api/me", a.handleMe)
+
+	// API tokens (CLI / CI).
+	mux.HandleFunc("POST /api/tokens", a.handleCreateToken)
+	mux.HandleFunc("GET /api/tokens", a.handleListTokens)
+	mux.HandleFunc("DELETE /api/tokens/{id}", a.handleRevokeToken)
 
 	// Packages.
 	mux.HandleFunc("GET /api/packages", a.handleListPackages)
@@ -66,8 +72,11 @@ func (a *App) NewRouter() http.Handler {
 	mux.HandleFunc("POST /api/packages/{name}/comments", a.handleCreateComment)
 	mux.HandleFunc("DELETE /api/comments/{id}", a.handleDeleteComment)
 
-	// Publish.
+	// Publish / manage.
 	mux.HandleFunc("POST /api/publish", a.handlePublish)
+	mux.HandleFunc("DELETE /api/packages/{name}", a.handleUnpublishPackage)
+	mux.HandleFunc("DELETE /api/packages/{name}/versions/{version}", a.handleUnpublishVersion)
+	mux.HandleFunc("POST /api/packages/{name}/deprecate", a.handleDeprecate)
 
 	return httpx.CORS(a.Cfg.FrontendURL, mux)
 }

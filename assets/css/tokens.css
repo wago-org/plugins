@@ -82,7 +82,8 @@ button {
 
 /* Subtle hover affordances the inline styles don't cover. */
 [data-act="open"]:hover,
-[data-act="cat"]:hover {
+[data-act="cat"]:hover,
+.ext-card:hover {
     border-color: var(--line-2);
 }
 

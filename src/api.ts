@@ -124,11 +124,12 @@ export function normalizePackage(raw: RawPackage): Package {
         verified: !!raw.verified,
         official: raw.official,
         ownerLogin: raw.ownerLogin,
+        deprecatedMessage: raw.deprecatedMessage,
         compatibility: raw.compatibility || { engines: {}, platforms: [] },
         capabilities: raw.capabilities || [],
         authors: raw.authors || [],
         contributors: raw.contributors || [],
-        extensions: raw.extensions || [],
+        subpackages: raw.subpackages || [],
         version: raw.version || latest?.version || "",
         latestVersion: raw.latestVersion || latest?.version || "",
         versions,
@@ -175,6 +176,7 @@ const LS = {
     votes: "wago.votes",
     comments: "wago.comments",
     installs: "wago.installs",
+    bookmarks: "wago.bookmarks",
 };
 
 function lsGet<T>(key: string, fallback: T): T {
@@ -209,7 +211,7 @@ function demoUser(): User {
         login: "jreyes",
         name: u?.name || "Jordan Reyes",
         email: "jordan@users.noreply.github.com",
-        bio: "Systems engineer working on WASM tooling. Maintainer of a handful of wago extensions.",
+        bio: "Systems engineer working on WASM tooling. Maintainer of a handful of wago subpackages.",
     });
 }
 
@@ -285,6 +287,21 @@ export function localStarState(pkg: Package): { stars: number; starred: boolean 
     const stars = lsGet<Record<string, boolean>>(LS.stars, {});
     const starred = !!stars[pkg.short];
     return { stars: pkg.stars + (starred ? 1 : 0), starred };
+}
+
+// ── bookmarks (save-for-later) ───────────────────────────────────────────────
+// A personal, per-browser list. There's no backend endpoint for this yet, so it
+// lives in localStorage in both modes.
+
+export function isBookmarked(short: string): boolean {
+    return !!lsGet<Record<string, boolean>>(LS.bookmarks, {})[short];
+}
+
+export function setBookmark(short: string, on: boolean): void {
+    const bm = lsGet<Record<string, boolean>>(LS.bookmarks, {});
+    if (on) bm[short] = true;
+    else delete bm[short];
+    lsSet(LS.bookmarks, bm);
 }
 
 // ── reviews ──────────────────────────────────────────────────────────────────

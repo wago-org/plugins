@@ -80,8 +80,8 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.Name = req.Manifest.Module
-	p.Extensions = req.Manifest.Extensions
-	aggregateFromExtensions(&p, req.Manifest.Extensions)
+	p.Subpackages = req.Manifest.Subpackages
+	aggregateFromSubpackages(&p, req.Manifest.Subpackages)
 
 	if req.Category != "" {
 		p.Category = req.Category
@@ -115,12 +115,12 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, a.decoratePackage(p, u.ID))
 }
 
-// aggregateFromExtensions rolls up package-level metadata from a manifest's
-// extensions: the union of tags, description/stability/license from the first
-// non-empty extension, and the first extension's compatibility as the
-// package-level compatibility.
-func aggregateFromExtensions(p *model.Package, exts []model.Extension) {
-	for _, e := range exts {
+// aggregateFromSubpackages rolls up package-level metadata from a manifest's
+// subpackages: the union of tags, description/stability from the first non-empty
+// subpackage, and the first subpackage's compatibility as the package-level
+// compatibility.
+func aggregateFromSubpackages(p *model.Package, subs []model.Subpackage) {
+	for _, e := range subs {
 		p.Tags = unionStrings(p.Tags, e.Tags)
 		if p.Description == "" && e.Description != "" {
 			p.Description = e.Description
@@ -129,8 +129,8 @@ func aggregateFromExtensions(p *model.Package, exts []model.Extension) {
 			p.Stability = e.Stability
 		}
 	}
-	if len(exts) > 0 {
-		p.Compat = exts[0].Compat
+	if len(subs) > 0 {
+		p.Compat = subs[0].Compat
 	}
 }
 
