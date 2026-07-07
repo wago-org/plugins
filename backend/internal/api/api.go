@@ -165,6 +165,7 @@ func (a *App) NewRouter() http.Handler {
 	mux.HandleFunc("POST /api/reviews/{id}/vote", a.handleVote)
 	mux.HandleFunc("GET /api/packages/{name}/comments", a.handleListComments)
 	mux.HandleFunc("POST /api/packages/{name}/comments", a.handleCreateComment)
+	mux.HandleFunc("POST /api/comments/{id}/vote", a.handleVoteComment)
 	mux.HandleFunc("DELETE /api/comments/{id}", a.handleDeleteComment)
 
 	// Publish / manage.

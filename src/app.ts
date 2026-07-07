@@ -5,6 +5,8 @@
 import * as api from "./api.js";
 import { backendMode } from "./api.js";
 import { copyFrom } from "./copy.js";
+import * as github from "./github.js";
+import { initMarkdown } from "./markdown.js";
 import {
     accountScreen,
     authScreen,
@@ -133,15 +135,21 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.draftRating = 0;
     state.hoverRating = 0;
     state.draftText = "";
+    state.reviewPreview = false;
     state.issueFilter = "open";
+    state.ghIssues = null;
+    state.ghIssuesLoading = false;
+    state.ghIssuesError = false;
     state.reviews = [];
     state.reviewsSummary = { average: pkg.rating, count: pkg.ratingCount };
     state.reviewsLoading = false;
     state.comments = [];
     state.commentsLoading = false;
     state.commentDraft = "";
+    state.commentPreview = false;
     state.replyTo = null;
     state.replyDraft = "";
+    state.replyPreview = false;
     state.installSeries = [];
     // seed the star widget synchronously so the header renders immediately…
     state.starred = !!pkg.starred;
@@ -157,6 +165,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.starred = !!detail.starred;
     state.starCount = detail.stars;
     render();
+    enrichAvatars(); // author/contributor profile pics
     // install history for the sidebar sparkline, and comments for the tab count.
     void api.loadInstalls(detail).then((r) => {
         if (state.pkg === detail) {
@@ -193,6 +202,7 @@ async function refreshReviews(): Promise<void> {
     } finally {
         state.reviewsLoading = false;
         render();
+        enrichAvatars();
     }
 }
 
@@ -212,7 +222,52 @@ async function refreshComments(): Promise<void> {
     } finally {
         state.commentsLoading = false;
         render();
+        enrichAvatars();
     }
+}
+
+// ── GitHub enrichment (client-side fetch, cached) ─────────────────────────────
+
+// Collect every GitHub login on the current package view (authors, contributors,
+// review + comment authors) and lazily fetch their avatars, re-rendering when a
+// new one arrives. Cached hits cost nothing; requests are deduped in github.ts.
+function enrichAvatars(): void {
+    const logins: string[] = [];
+    const p = state.pkg;
+    if (p) {
+        for (const a of p.authors || []) if (a.github) logins.push(a.github);
+        for (const c of p.contributors || []) logins.push(c);
+    }
+    for (const r of state.reviews) if (r.login) logins.push(r.login);
+    for (const c of state.comments) if (c.login) logins.push(c.login);
+    github.ensureAvatars(logins, () => {
+        if (state.screen === "package") render();
+    });
+}
+
+// Sync the Issues tab from the live GitHub API for this package's repo.
+async function syncIssues(): Promise<void> {
+    const pkg = state.pkg;
+    if (!pkg) return;
+    const repo = github.parseRepo(pkg.repository);
+    if (!repo) {
+        state.ghIssuesError = true;
+        render();
+        return;
+    }
+    state.ghIssuesLoading = true;
+    state.ghIssuesError = false;
+    render();
+    const issues = await github.fetchIssues(repo.owner, repo.repo);
+    if (state.pkg !== pkg) return;
+    state.ghIssuesLoading = false;
+    if (issues === null) {
+        // Rate-limited / error / unreachable — keep showing the seed sample.
+        state.ghIssuesError = true;
+    } else {
+        state.ghIssues = issues;
+    }
+    render();
 }
 
 // ── star picker painting (in place, no full re-render on hover) ───────────────
@@ -286,6 +341,7 @@ async function submitReview(): Promise<void> {
     state.draftRating = 0;
     state.hoverRating = 0;
     state.composerOpen = false;
+    state.reviewPreview = false;
     await refreshReviews();
 }
 
@@ -301,6 +357,18 @@ async function voteOnReview(id: string, dir: "up" | "down"): Promise<void> {
     await refreshReviews();
 }
 
+async function voteOnComment(id: string, dir: "up" | "down"): Promise<void> {
+    if (!state.user) {
+        navAuth();
+        return;
+    }
+    const c = state.comments.find((x) => x.id === id);
+    if (!c) return;
+    const next = c.myVote === dir ? null : dir;
+    await api.voteComment(id, next);
+    await refreshComments();
+}
+
 async function submitComment(): Promise<void> {
     if (!state.user) {
         navAuth();
@@ -311,6 +379,7 @@ async function submitComment(): Promise<void> {
     if (!text) return;
     await api.postComment(state.pkg, state.user, text);
     state.commentDraft = "";
+    state.commentPreview = false;
     await refreshComments();
 }
 
@@ -321,6 +390,7 @@ async function submitReply(parentId: string): Promise<void> {
     await api.postComment(state.pkg, state.user, text, parentId);
     state.replyTo = null;
     state.replyDraft = "";
+    state.replyPreview = false;
     await refreshComments();
 }
 
@@ -484,6 +554,7 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             state.draftText = "";
             state.draftRating = 0;
             state.hoverRating = 0;
+            state.reviewPreview = false;
             render();
             break;
         case "rate":
@@ -504,6 +575,39 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
         case "vote-down":
             if (arg) void voteOnReview(arg, "down");
             break;
+        case "comment-vote-up":
+            if (arg) void voteOnComment(arg, "up");
+            break;
+        case "comment-vote-down":
+            if (arg) void voteOnComment(arg, "down");
+            break;
+        case "review-write":
+            state.reviewPreview = false;
+            render();
+            break;
+        case "review-preview":
+            state.reviewPreview = true;
+            render();
+            break;
+        case "comment-write":
+            state.commentPreview = false;
+            render();
+            break;
+        case "comment-preview":
+            state.commentPreview = true;
+            render();
+            break;
+        case "reply-write":
+            state.replyPreview = false;
+            render();
+            break;
+        case "reply-preview":
+            state.replyPreview = true;
+            render();
+            break;
+        case "sync-issues":
+            void syncIssues();
+            break;
         case "comment-submit":
             void submitComment();
             break;
@@ -519,6 +623,7 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
         case "reply-cancel":
             state.replyTo = null;
             state.replyDraft = "";
+            state.replyPreview = false;
             render();
             break;
         case "reply-submit":
@@ -651,6 +756,9 @@ function wireEvents(): void {
 export async function init(): Promise<void> {
     render(); // "Loading registry…"
     wireEvents();
+    // Load the markdown renderer up front; re-render once ready so any already
+    // painted bodies switch from the escaped-text fallback to rendered HTML.
+    void initMarkdown().then(() => render());
     await api.probeBackend();
     try {
         state.registry = await api.loadRegistry();

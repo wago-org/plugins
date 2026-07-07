@@ -190,20 +190,28 @@ func (a *App) handleVote(w http.ResponseWriter, r *http.Request) {
 
 // --- Comments ---
 
-// commentView is the client-facing comment with joined author fields.
+// commentView is the client-facing comment with joined author and vote fields.
 type commentView struct {
-	ID           string `json:"id"`
-	PackageShort string `json:"packageShort"`
-	UserID       string `json:"userId"`
-	Author       string `json:"author"`
-	AvatarURL    string `json:"avatarUrl"`
-	Body         string `json:"body"`
-	CreatedAt    string `json:"createdAt"`
-	ParentID     string `json:"parentId"`
+	ID           string  `json:"id"`
+	PackageShort string  `json:"packageShort"`
+	UserID       string  `json:"userId"`
+	Author       string  `json:"author"`
+	AvatarURL    string  `json:"avatarUrl"`
+	Body         string  `json:"body"`
+	CreatedAt    string  `json:"createdAt"`
+	ParentID     string  `json:"parentId"`
+	Score        int     `json:"score"`
+	Upvotes      int     `json:"upvotes"`
+	Downvotes    int     `json:"downvotes"`
+	MyVote       *string `json:"myVote"`
 }
 
-func (a *App) buildCommentView(c model.Comment) commentView {
+// buildCommentView joins author identity and vote tallies onto a comment. Votes
+// reuse the same opaque-id vote store as reviews (comment and review ids are both
+// random 16-byte hex, so they never collide).
+func (a *App) buildCommentView(c model.Comment, viewerID string) commentView {
 	author, _ := a.Store.GetUser(c.UserID)
+	up, down := a.Store.VoteTally(c.ID)
 	return commentView{
 		ID:           c.ID,
 		PackageShort: c.PackageShort,
@@ -213,6 +221,10 @@ func (a *App) buildCommentView(c model.Comment) commentView {
 		Body:         c.Body,
 		CreatedAt:    c.CreatedAt,
 		ParentID:     c.ParentID,
+		Score:        up - down,
+		Upvotes:      up,
+		Downvotes:    down,
+		MyVote:       a.Store.MyVote(c.ID, viewerID),
 	}
 }
 
@@ -222,12 +234,54 @@ func (a *App) handleListComments(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusNotFound, "package not found")
 		return
 	}
+	viewer := a.viewerID(r)
 	raw := a.Store.CommentsForPackage(p.Short)
 	views := make([]commentView, 0, len(raw))
 	for _, c := range raw {
-		views = append(views, a.buildCommentView(c))
+		views = append(views, a.buildCommentView(c, viewer))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"comments": views})
+}
+
+// handleVoteComment sets/clears the caller's up/down vote on a comment. Unlike
+// reviews, a user may vote on their own comment.
+func (a *App) handleVoteComment(w http.ResponseWriter, r *http.Request) {
+	u := a.Sessions.CurrentUser(r)
+	if u == nil {
+		httpx.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	id := r.PathValue("id")
+	if _, ok := a.Store.GetComment(id); !ok {
+		httpx.WriteError(w, http.StatusNotFound, "comment not found")
+		return
+	}
+	var in struct {
+		Dir *string `json:"dir"`
+	}
+	if err := decodeJSON(w, r, &in, 1<<12); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	dir := ""
+	if in.Dir != nil {
+		dir = *in.Dir
+	}
+	if dir != "" && dir != "up" && dir != "down" {
+		httpx.WriteError(w, http.StatusBadRequest, "dir must be up, down or null")
+		return
+	}
+	up, down, err := a.Store.SetVote(id, u.ID, dir)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"score":     up - down,
+		"upvotes":   up,
+		"downvotes": down,
+		"myVote":    a.Store.MyVote(id, u.ID),
+	})
 }
 
 func (a *App) handleCreateComment(w http.ResponseWriter, r *http.Request) {
@@ -266,7 +320,7 @@ func (a *App) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusInternalServerError, "store error")
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(c))
+	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(c, u.ID))
 }
 
 func (a *App) handleDeleteComment(w http.ResponseWriter, r *http.Request) {

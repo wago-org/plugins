@@ -2,7 +2,7 @@
 // event layer mutates it and asks for a re-render. Ephemeral UI bits (open
 // menus, draft text, active tab) live here alongside loaded data.
 
-import type { Comment, InstallPoint, Package, Registry, Review, User } from "./types.js";
+import type { Comment, Issue, InstallPoint, Package, Registry, Review, User } from "./types.js";
 
 export type Screen = "home" | "search" | "package" | "auth" | "account";
 export type PkgTab = "readme" | "reviews" | "comments" | "issues" | "versions";
@@ -30,17 +30,25 @@ export interface AppState {
     draftRating: number;
     hoverRating: number;
     draftText: string;
+    reviewPreview: boolean; // review composer: Write | Preview
     issueFilter: "open" | "closed";
     starred: boolean;
     starCount: number;
     bookmarked: boolean;
 
+    // GitHub issue sync (client-side fetch)
+    ghIssues: Issue[] | null; // null = not synced; [] = synced but empty
+    ghIssuesLoading: boolean;
+    ghIssuesError: boolean; // couldn't reach GitHub / rate-limited
+
     // comments
     comments: Comment[];
     commentsLoading: boolean;
     commentDraft: string;
+    commentPreview: boolean; // comment composer: Write | Preview
     replyTo: string | null;
     replyDraft: string;
+    replyPreview: boolean; // reply composer: Write | Preview
 
     // install history (for the sidebar sparkline)
     installSeries: InstallPoint[];
@@ -78,16 +86,23 @@ export const state: AppState = {
     draftRating: 0,
     hoverRating: 0,
     draftText: "",
+    reviewPreview: false,
     issueFilter: "open",
     starred: false,
     starCount: 0,
     bookmarked: false,
 
+    ghIssues: null,
+    ghIssuesLoading: false,
+    ghIssuesError: false,
+
     comments: [],
     commentsLoading: false,
     commentDraft: "",
+    commentPreview: false,
     replyTo: null,
     replyDraft: "",
+    replyPreview: false,
 
     installSeries: [],
 

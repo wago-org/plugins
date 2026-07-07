@@ -52,6 +52,7 @@ export interface Review {
     id?: string;
     userId?: string | number;
     author: string;
+    login?: string; // GitHub login, for profile-pic enrichment
     avatarUrl?: string;
     rating: number;
     body: string;
@@ -69,10 +70,16 @@ export interface Comment {
     packageShort?: string;
     userId?: string | number;
     author: string;
+    login?: string; // GitHub login, for profile-pic enrichment
     avatarUrl?: string;
     body: string;
     createdAt: string;
     parentId?: string;
+    // comment votes (mirrors reviews)
+    score?: number;
+    upvotes?: number;
+    downvotes?: number;
+    myVote?: "up" | "down" | null;
     // derived for rendering
     initial?: string;
     bg?: string;

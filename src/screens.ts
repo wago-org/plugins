@@ -15,6 +15,8 @@ import type {
     VersionRow,
 } from "./types.js";
 import { compactNum, esc, escAttr, relativeDate, shortHash, sparkline, starStr, tier } from "./util.js";
+import { mdBlock } from "./markdown.js";
+import { avatarFor } from "./github.js";
 
 const C = {
     bg: "#1a1547",
@@ -173,6 +175,38 @@ function avatarSpan(
     if (avatarUrl)
         return `<img src="${escAttr(avatarUrl)}" alt="${escAttr(name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0" />`;
     return `<span title="${escAttr(name)}" style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:${font}px;color:${C.bg};flex-shrink:0">${esc(initial)}</span>`;
+}
+
+// Like avatarSpan, but prefers a real GitHub profile picture: an explicit
+// avatarUrl wins, else a cached avatar for `login` (fetched lazily by the app
+// layer), else the generated initial avatar.
+function ghAvatarSpan(
+    login: string | undefined,
+    name: string,
+    initial: string,
+    bg: string,
+    avatarUrl: string | undefined,
+    size: number,
+    font: number,
+): string {
+    const url = avatarUrl || (login ? avatarFor(login) || undefined : undefined);
+    return avatarSpan(name, initial, bg, url, size, font);
+}
+
+// A small "Write | Preview" segmented control for a markdown composer. In
+// preview mode the caller swaps the textarea for a rendered `.md` block.
+function writePreviewTabs(preview: boolean, writeAct: string, previewAct: string): string {
+    const btn = (label: string, on: boolean, act: string): string =>
+        `<button data-act="${act}" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:${on ? C.bg : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:5px 12px;border-radius:6px;cursor:pointer">${label}</button>`;
+    return `<div style="display:inline-flex;gap:2px;background:${C.panel};border:1px solid ${C.line};border-radius:8px;padding:3px;margin-bottom:10px">${btn("Write", !preview, writeAct)}${btn("Preview", preview, previewAct)}</div>`;
+}
+
+// A rendered markdown preview pane (or a muted "nothing to preview" note).
+function previewPane(draft: string, minHeight: number): string {
+    const body = draft.trim()
+        ? mdBlock(draft)
+        : `<span style="color:${C.muted};font-size:13px">Nothing to preview yet.</span>`;
+    return `<div style="min-height:${minHeight}px;background:${C.panel};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;box-sizing:border-box">${body}</div>`;
 }
 
 function profileMenu(s: AppState): string {
@@ -637,11 +671,15 @@ function composerOpenBlock(s: AppState, activeRating: number): string {
                 `<span class="pick-star" data-n="${n}" data-act="rate" data-arg="${n}" style="color:${n <= activeRating ? C.lilac : "#4b407e"};cursor:pointer">${n <= activeRating ? "★" : "☆"}</span>`,
         )
         .join("");
+    const editor = s.reviewPreview
+        ? previewPane(s.draftText, 80)
+        : `<textarea data-act="draft" placeholder="How did it work for you? Markdown supported." style="width:100%;min-height:80px;background:${C.panel};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;color:${C.text};font-size:14px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.draftText)}</textarea>`;
     return `
   <div style="background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:18px 20px;margin-bottom:24px">
     <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">Write a review</div>
     <div id="star-picker" style="display:flex;gap:4px;font-size:26px;margin-bottom:12px;width:max-content">${stars}</div>
-    <textarea data-act="draft" placeholder="How did it work for you?" style="width:100%;min-height:80px;background:${C.panel};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;color:${C.text};font-size:14px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.draftText)}</textarea>
+    ${writePreviewTabs(s.reviewPreview, "review-write", "review-preview")}
+    ${editor}
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
       <button data-act="composer-close" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:10px 18px;border-radius:9px;cursor:pointer">Cancel</button>
       <button data-act="review-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:10px 20px;border-radius:9px;cursor:pointer">Post review</button>
@@ -657,14 +695,14 @@ function reviewCard(r: Review): string {
     return `
             <div style="background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:18px 20px">
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px">
-                ${avatarSpan(r.author, r.initial || "?", r.bg || C.lilac, r.avatarUrl, 34, 13)}
+                ${ghAvatarSpan(r.login, r.author, r.initial || "?", r.bg || C.lilac, r.avatarUrl, 34, 13)}
                 <div style="flex:1;min-width:0">
                   <div style="font-weight:700;font-size:14.5px;color:${C.text}">${esc(r.author)}${r.mine ? ` <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted}">you</span>` : ""}</div>
                   <div style="font-size:13px;letter-spacing:1px;color:${C.lilac}">${starStr(r.rating)}</div>
                 </div>
                 <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(relative(r.createdAt))}</span>
               </div>
-              <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 12px">${esc(r.body)}</p>
+              <div style="margin:0 0 12px">${mdBlock(r.body)}</div>
               <div style="display:flex;align-items:center;gap:10px">
                 <button data-act="vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${upOn ? C.bg : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▲ ${r.score ?? 0}</button>
                 <button data-act="vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${downOn ? C.bg : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▼</button>
@@ -676,10 +714,14 @@ function reviewCard(r: Review): string {
 // ── comments ─────────────────────────────────────────────────────────────────
 
 function commentsTab(s: AppState): string {
+    const commentEditor = s.commentPreview
+        ? previewPane(s.commentDraft, 70)
+        : `<textarea data-act="comment-draft" placeholder="Add to the discussion… Markdown supported." style="width:100%;min-height:70px;background:${C.panel};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;color:${C.text};font-size:14px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.commentDraft)}</textarea>`;
     const composer = s.user
         ? `
     <div style="background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:16px 18px;margin-bottom:22px">
-      <textarea data-act="comment-draft" placeholder="Add to the discussion…" style="width:100%;min-height:70px;background:${C.panel};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;color:${C.text};font-size:14px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.commentDraft)}</textarea>
+      ${writePreviewTabs(s.commentPreview, "comment-write", "comment-preview")}
+      ${commentEditor}
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
         <button data-act="comment-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Comment</button>
       </div>
@@ -704,11 +746,15 @@ function commentThread(s: AppState): string {
 }
 
 function commentCard(s: AppState, c: Comment, replies: Comment[]): string {
+    const replyEditor = s.replyPreview
+        ? previewPane(s.replyDraft, 56)
+        : `<textarea data-act="reply-draft" placeholder="Reply… Markdown supported." style="width:100%;min-height:56px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:10px 12px;color:${C.text};font-size:13.5px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.replyDraft)}</textarea>`;
     const replyBox =
         s.user && s.replyTo === c.id
             ? `
         <div style="margin-top:12px">
-          <textarea data-act="reply-draft" placeholder="Reply…" style="width:100%;min-height:56px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:10px 12px;color:${C.text};font-size:13.5px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.replyDraft)}</textarea>
+          ${writePreviewTabs(s.replyPreview, "reply-write", "reply-preview")}
+          ${replyEditor}
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
             <button data-act="reply-cancel" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:7px 14px;border-radius:8px;cursor:pointer">Cancel</button>
             <button data-act="reply-submit" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Reply</button>
@@ -730,20 +776,28 @@ function commentCard(s: AppState, c: Comment, replies: Comment[]): string {
 }
 
 function commentBody(s: AppState, c: Comment): string {
+    const id = escAttr(c.id);
+    const v = c.myVote;
+    const upOn = v === "up";
+    const downOn = v === "down";
+    const votes = `
+        <button data-act="comment-vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${upOn ? C.bg : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▲ ${c.score ?? 0}</button>
+        <button data-act="comment-vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${downOn ? C.bg : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▼</button>`;
     const actions = `
-      <div style="display:flex;align-items:center;gap:14px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px">
+        ${votes}
         ${s.user && !c.parentId ? `<button data-act="reply-open" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.lilac};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">reply</button>` : ""}
         ${c.mine ? `<button data-act="comment-delete" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.pink};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">delete</button>` : ""}
       </div>`;
     return `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          ${avatarSpan(c.author, c.initial || "?", c.bg || C.lilac, c.avatarUrl, 30, 12)}
+          ${ghAvatarSpan(c.login, c.author, c.initial || "?", c.bg || C.lilac, c.avatarUrl, 30, 12)}
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13.5px;color:${C.text}">${esc(c.author)}${c.mine ? ` <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted}">you</span>` : ""}</div>
           </div>
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(relative(c.createdAt))}</span>
         </div>
-        <p style="font-size:13.5px;line-height:1.6;color:${C.soft};margin:0">${esc(c.body)}</p>
+        ${mdBlock(c.body)}
         ${actions}`;
 }
 
@@ -751,7 +805,9 @@ function commentBody(s: AppState, c: Comment): string {
 
 function issuesTab(s: AppState): string {
     const p = s.pkg!;
-    const issues = p.issues || [];
+    // Live GitHub issues once synced (even if empty); else the seed sample.
+    const live = s.ghIssues !== null;
+    const issues = s.ghIssues ?? (p.issues || []);
     const openCount = issues.filter((i) => i.state === "open").length;
     const closedCount = issues.length - openCount;
     const view = issues.filter((i) =>
@@ -766,6 +822,14 @@ function issuesTab(s: AppState): string {
             return `<button data-act="issue-filter" data-arg="${f.k}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${on ? C.bg : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:6px 13px;border-radius:6px;cursor:pointer">${esc(f.l)}</button>`;
         })
         .join("");
+    const syncLabel = s.ghIssuesLoading ? "⟳ Syncing…" : live ? "⟳ Re-sync" : "⟳ Sync from GitHub";
+    const syncBtn = `<button data-act="sync-issues"${s.ghIssuesLoading ? " disabled" : ""} style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:6px 13px;border-radius:8px;cursor:${s.ghIssuesLoading ? "default" : "pointer"};opacity:${s.ghIssuesLoading ? "0.6" : "1"}">${syncLabel}</button>`;
+    // A subtle note when a sync failed / rate-limited and we're on seed data.
+    const note = s.ghIssuesError
+        ? `<div style="font-size:12px;color:${C.muted};margin-bottom:12px">Showing sample data — couldn't reach GitHub (it may be rate-limited). Try again later.</div>`
+        : live
+          ? `<div style="font-size:12px;color:${C.muted};margin-bottom:12px">Live issues from GitHub.</div>`
+          : "";
     const rows =
         view.map((it, i) => issueRow(p, it, i === 0)).join("") ||
         `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel}">No ${s.issueFilter} issues.</div>`;
@@ -773,8 +837,12 @@ function issuesTab(s: AppState): string {
 <div>
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
     <div style="display:flex;gap:2px;background:${C.deep};border:1px solid ${C.line};border-radius:9px;padding:3px">${filters}</div>
-    <a href="${escAttr(p.repository)}/issues" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.lilac}">new issue on GitHub ↗</a>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      ${syncBtn}
+      <a href="${escAttr(p.repository)}/issues" target="_blank" rel="noopener" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.lilac}">new issue on GitHub ↗</a>
+    </div>
   </div>
+  ${note}
   <div style="border:1px solid ${C.line};border-radius:14px;overflow:hidden">${rows}</div>
 </div>`;
 }
@@ -919,12 +987,22 @@ function pkgSidebar(s: AppState): string {
         : "";
 
     const authors = (p.authors || [])
-        .map((a) => avatarSpan(a.name, (a.name || "?")[0].toUpperCase(), avatarBgFor(a.github || a.name), undefined, 34, 13))
+        .map((a) =>
+            ghAvatarSpan(
+                a.github,
+                a.name,
+                (a.name || "?")[0].toUpperCase(),
+                avatarBgFor(a.github || a.name),
+                undefined,
+                34,
+                13,
+            ),
+        )
         .join("");
     const contributors = (p.contributors || [])
         .map(
             (login) =>
-                `<a href="https://github.com/${escAttr(login)}" target="_blank" rel="noopener" title="${escAttr(login)}" style="text-decoration:none">${avatarSpan(login, login[0].toUpperCase(), avatarBgFor(login), undefined, 30, 11)}</a>`,
+                `<a href="https://github.com/${escAttr(login)}" target="_blank" rel="noopener" title="${escAttr(login)}" style="text-decoration:none">${ghAvatarSpan(login, login, login[0].toUpperCase(), avatarBgFor(login), undefined, 30, 11)}</a>`,
         )
         .join("");
     const weekLabel = compactNum(s.installSeries.slice(-7).reduce((a, b) => a + b.count, 0) || p.installsWeek);

@@ -399,6 +399,7 @@ export async function loadReviews(pkg: Package, user: User | null): Promise<Revi
                 id: `seed-${pkg.short}-${i}`,
                 userId: `seed:${s.login}`,
                 author: s.login,
+                login: s.login,
                 rating: s.rating,
                 body: s.body,
                 createdAt: s.createdAt,
@@ -426,6 +427,7 @@ function decorateReview(r: Review, user: User | null): Review {
     const su = seedUser(r.author);
     return {
         ...r,
+        login: r.login || r.author,
         initial: initialOf(su.name),
         bg: su.bg,
         avatarUrl: r.avatarUrl || su.avatarUrl,
@@ -490,18 +492,31 @@ export async function loadComments(pkg: Package, user: User | null): Promise<Com
                 id,
                 userId: `seed:${c.login}`,
                 author: c.login,
+                login: c.login,
                 body: c.body,
                 createdAt: c.createdAt,
                 parentId,
+                score: 0,
+                myVote: null,
             });
         });
         const posted = lsGet<Record<string, Comment[]>>(LS.comments, {})[pkg.short] || [];
-        list = [...seeds, ...posted];
+        // Apply this browser's votes (same store the review votes use).
+        const votes = lsGet<Record<string, "up" | "down">>(LS.votes, {});
+        list = [...seeds, ...posted].map((c) => {
+            const v = votes[c.id] || null;
+            return {
+                ...c,
+                myVote: v,
+                score: (c.score || 0) + (v === "up" ? 1 : 0) + (v === "down" ? -1 : 0),
+            };
+        });
     }
     return list.map((c) => {
         const su = seedUser(c.author);
         return {
             ...c,
+            login: c.login || c.author,
             initial: initialOf(su.name),
             bg: su.bg,
             avatarUrl: c.avatarUrl || su.avatarUrl,
@@ -533,6 +548,18 @@ export async function postComment(
     });
     store[pkg.short] = list;
     lsSet(LS.comments, store);
+}
+
+// Comment votes reuse the same opaque-id vote store as reviews.
+export async function voteComment(commentId: string, dir: "up" | "down" | null): Promise<void> {
+    if (mode === "remote") {
+        await apiSend(`/api/comments/${commentId}/vote`, "POST", { dir });
+        return;
+    }
+    const votes = lsGet<Record<string, "up" | "down">>(LS.votes, {});
+    if (dir === null) delete votes[commentId];
+    else votes[commentId] = dir;
+    lsSet(LS.votes, votes);
 }
 
 export async function deleteComment(pkg: Package, id: string): Promise<void> {
