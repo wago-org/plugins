@@ -28,6 +28,7 @@ type App struct {
 	Sessions *auth.Sessions
 	GitHub   *auth.GitHub
 	Email    *email.Sender
+	Device   *deviceAuth
 	list     *listCache
 }
 
@@ -45,7 +46,8 @@ func New(cfg config.Config, st store.Store) *App {
 			Pass: cfg.SMTPPass,
 			From: cfg.SMTPFrom,
 		}),
-		list: &listCache{},
+		Device: newDeviceAuth(),
+		list:   &listCache{},
 	}
 }
 
@@ -134,6 +136,12 @@ func (a *App) NewRouter() http.Handler {
 	mux.HandleFunc("GET /auth/github/login", a.handleLogin)
 	mux.HandleFunc("GET /auth/cli/login", a.handleCLILogin)
 	mux.HandleFunc("GET /auth/github/callback", a.handleCallback)
+
+	// Device authorization (RFC 8628) — CLI login for headless/remote machines.
+	mux.HandleFunc("GET /device", a.handleDevicePage)
+	mux.HandleFunc("POST /api/device/code", a.handleDeviceCode)
+	mux.HandleFunc("POST /api/device/token", a.handleDeviceToken)
+	mux.HandleFunc("POST /api/device/approve", a.handleDeviceApprove)
 	mux.HandleFunc("POST /api/logout", a.handleLogout)
 	mux.HandleFunc("GET /api/me", a.handleMe)
 	mux.HandleFunc("GET /api/me/stars", a.handleMyStars)
