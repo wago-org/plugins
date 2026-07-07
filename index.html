@@ -29,14 +29,14 @@
 
         <script>
             // Where the Go backend lives.
-            //   • Local dev: leave apiBase unset — the frontend auto-targets
-            //     http://localhost:8787, and falls back to local-demo mode
-            //     (sign-in/stars/reviews faked in the browser) if it's not up.
-            //   • Production: uncomment the line below so the deployed site talks
-            //     to the real backend. It must be HTTPS and match the backend's
-            //     FRONTEND_URL / OAuth callback host.
+            //   • Production (pkg.wago.sh) → the deployed backend at api.pkg.wago.sh.
+            //   • Local dev (localhost) → apiBase stays unset so the frontend targets
+            //     http://localhost:8787, falling back to demo mode if it's not up.
             window.WAGO_CONFIG = {
-                // apiBase: "https://api.pkg.wago.sh",
+                apiBase:
+                    location.hostname === "localhost" || location.hostname === "127.0.0.1"
+                        ? undefined
+                        : "https://api.pkg.wago.sh",
             };
         </script>
     </head>
