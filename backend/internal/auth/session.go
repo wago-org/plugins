@@ -181,6 +181,15 @@ func (s *Sessions) ClearCLICookie() *http.Cookie {
 	return &http.Cookie{Name: CLICookieName, Path: "/", MaxAge: -1, Secure: !s.devMode, HttpOnly: true}
 }
 
+// ClearStateCookie expires the OAuth state cookie with the same security flags
+// it was set with (HttpOnly, Secure in prod, SameSite=Lax).
+func (s *Sessions) ClearStateCookie() *http.Cookie {
+	return &http.Cookie{
+		Name: StateCookieName, Path: "/", MaxAge: -1,
+		Secure: !s.devMode, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	}
+}
+
 // VerifyState checks the OAuth state cookie against the state query parameter.
 func (s *Sessions) VerifyState(r *http.Request, state string) bool {
 	c, err := r.Cookie(StateCookieName)
