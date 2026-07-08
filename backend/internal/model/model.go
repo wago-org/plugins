@@ -63,6 +63,9 @@ type Version struct {
 	Latest       bool   `json:"latest"`
 	InstallShare int    `json:"installShare"`
 	Deprecated   bool   `json:"deprecated,omitempty"`
+	// Hidden marks a placeholder release (version 0.0.0): re-publishable at any
+	// time and deleted the moment a real (>0.0.0) version ships.
+	Hidden bool `json:"hidden,omitempty"`
 	// Hash is a server-computed content fingerprint (sha256:…) of the release,
 	// making each published version tamper-evident and immutable.
 	Hash string `json:"hash,omitempty"`

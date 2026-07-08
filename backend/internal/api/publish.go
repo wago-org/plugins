@@ -16,7 +16,8 @@ import (
 // module path, version, commit, notes, unpacked size and subpackage manifest.
 // json.Marshal sorts map keys, so this is deterministic. It makes each version
 // tamper-evident — combined with the append-only, republish-rejected version
-// list, a release is effectively immutable once published.
+// list, a real release is effectively immutable once published. (The 0.0.0
+// placeholder is the deliberate exception: hidden and freely re-publishable.)
 func releaseHash(module string, v model.Version, subs []model.Subpackage) string {
 	payload := struct {
 		Module      string             `json:"module"`
@@ -93,14 +94,6 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reject a duplicate version string.
-	for _, v := range p.Versions {
-		if v.Version == req.Version {
-			httpx.WriteError(w, http.StatusConflict, "version already published")
-			return
-		}
-	}
-
 	p.Name = req.Manifest.Module
 	p.Subpackages = req.Manifest.Subpackages
 	aggregateFromSubpackages(&p, req.Manifest.Subpackages)
@@ -116,20 +109,21 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	// Add the caller as a contributor (deduped).
 	p.Contributors = unionStrings(p.Contributors, []string{u.Login})
 
-	// Append the new version, marking it latest and unsetting the previous latest.
-	for i := range p.Versions {
-		p.Versions[i].Latest = false
-	}
 	nv := model.Version{
 		Version:     req.Version,
 		Commit:      req.Commit,
 		Notes:       req.Notes,
 		UnpackedKB:  req.UnpackedKB,
 		PublishedAt: time.Now().UTC().Format(time.RFC3339),
-		Latest:      true,
 	}
 	nv.Hash = releaseHash(p.Name, nv, p.Subpackages)
-	p.Versions = append(p.Versions, nv)
+
+	versions, conflict := applyRelease(p.Versions, nv)
+	if conflict {
+		httpx.WriteError(w, http.StatusConflict, "version already published")
+		return
+	}
+	p.Versions = versions
 	p.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 
 	if err := a.Store.UpsertPackage(p); err != nil {
@@ -137,6 +131,39 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, a.decoratePackage(p, u.ID))
+}
+
+// placeholderVersion is the reserved version that is always hidden, freely
+// re-publishable, and deleted when any real version ships.
+const placeholderVersion = "0.0.0"
+
+// applyRelease returns the version list after publishing nv, and whether the
+// publish conflicts with an existing immutable version.
+//
+// Version 0.0.0 is a hidden placeholder: it never conflicts (re-publish over it
+// anytime) and it is dropped whenever anything is published — replaced on a
+// placeholder re-publish, deleted the moment a real (>0.0.0) release ships. Every
+// other version is append-only and immutable, so re-publishing one conflicts.
+func applyRelease(existing []model.Version, nv model.Version) (versions []model.Version, conflict bool) {
+	placeholder := nv.Version == placeholderVersion
+	if !placeholder {
+		for _, v := range existing {
+			if v.Version == nv.Version {
+				return nil, true
+			}
+		}
+	}
+	kept := make([]model.Version, 0, len(existing)+1)
+	for _, v := range existing {
+		if v.Version == placeholderVersion {
+			continue // transient: superseded by this publish
+		}
+		v.Latest = false
+		kept = append(kept, v)
+	}
+	nv.Latest = true
+	nv.Hidden = placeholder
+	return append(kept, nv), false
 }
 
 // aggregateFromSubpackages rolls up package-level metadata from a manifest's

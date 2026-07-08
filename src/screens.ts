@@ -1025,6 +1025,9 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
     const deprecated = v.deprecated
         ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:#ffb4d2;background:#3a1f34;border:1px solid #6b3453;padding:2px 7px;border-radius:100px">deprecated</span>`
         : "";
+    const hidden = v.hidden
+        ? `<span title="Placeholder release — freely re-published and replaced by the first real version" style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:${C.muted};background:${C.deep};border:1px solid ${C.line2};padding:2px 7px;border-radius:100px">hidden</span>`
+        : "";
     const commit = v.commit
         ? `<a href="${escAttr(p.repository)}/commit/${escAttr(v.commit)}" target="_blank" rel="noopener" title="${escAttr(v.commit)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.lilac};background:${C.deep};border:1px solid ${C.line};padding:2px 7px;border-radius:6px">⑂ ${esc(shortHash(v.commit))}</a>`
         : "";
@@ -1033,7 +1036,7 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
               <div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.text}">${esc(v.version)}</span>
-                  ${latest}${deprecated}
+                  ${latest}${deprecated}${hidden}
                 </div>
                 <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};margin-bottom:7px">${esc(relative(v.publishedAt))}</div>
                 ${commit}

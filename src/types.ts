@@ -36,6 +36,7 @@ export interface VersionRow {
     latest: boolean;
     installShare: number;
     deprecated?: boolean;
+    hidden?: boolean; // placeholder release (0.0.0): not a real, citable version
 }
 
 export interface Issue {
