@@ -655,26 +655,17 @@ function subpackageDetail(s: AppState): string {
   ${readmeHtml}`;
 }
 
+// The Readme tab shows the package repository's real README.md, fetched from
+// GitHub client-side and rendered as markdown.
 function readmeTab(s: AppState): string {
     const p = s.pkg!;
-    const code = `<span style="color:#6f64a8"># add the subpackage to your custom wago build</span>
-$ wago pkg add ${esc(p.name)}
-
-<span style="color:#6f64a8"># or in Go — register the extension on the runtime</span>
-rt := wago.<span style="color:${C.lilac}">New</span>()
-rt.<span style="color:${C.lilac}">Use</span>(${esc(p.short.replace(/[^a-z0-9]/gi, ""))}.<span style="color:${C.lilac}">Ext</span>(${esc(p.short.replace(/[^a-z0-9]/gi, ""))}.Config{}))`;
-
-    return `
-<div>
-  <h2 style="font-weight:800;font-size:24px;letter-spacing:-0.6px;margin:0 0 12px">${esc(p.short)}</h2>
-  <p style="font-size:15px;line-height:1.65;color:${C.soft};margin:0 0 20px">${esc(p.description)}</p>
-
-  <h3 style="font-weight:700;font-size:18px;margin:28px 0 12px">Usage</h3>
-  <div style="background:${C.deep};border:1px solid ${C.line};border-radius:12px;overflow:hidden">
-    <div style="padding:10px 16px;border-bottom:1px solid ${C.line};font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">shell / main.go</div>
-    <pre style="margin:0;padding:18px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.85;color:#e7e0ff;overflow-x:auto">${code}</pre>
-  </div>
-</div>`;
+    if (s.readme) {
+        return `<div class="readme">${mdBlock(s.readme)}</div>`;
+    }
+    if (s.readmeLoading) {
+        return `<div style="padding:22px;color:${C.muted};font-size:14px">Loading README from GitHub…</div>`;
+    }
+    return `<div style="padding:24px;background:${C.panel};border:1px solid ${C.line};border-radius:12px;color:${C.muted};font-size:14px">No README found in the repository. <a href="${escAttr(p.repository)}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">View on GitHub ↗</a></div>`;
 }
 
 // The grid of subpackage cards. Each opens the subpackage's own page in-app

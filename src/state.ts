@@ -24,6 +24,8 @@ export interface AppState {
     pkg: Package | null;
     pkgTab: PkgTab;
     sub: string | null; // id of the subpackage whose page is open (else null)
+    readme: string | null; // the package repo's README markdown, fetched from GitHub
+    readmeLoading: boolean;
     reviews: Review[];
     reviewsSummary: { average: number; count: number };
     reviewsLoading: boolean;
@@ -96,6 +98,8 @@ export const state: AppState = {
     pkg: null,
     pkgTab: "readme",
     sub: null,
+    readme: null,
+    readmeLoading: false,
     reviews: [],
     reviewsSummary: { average: 0, count: 0 },
     reviewsLoading: false,

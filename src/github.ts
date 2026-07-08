@@ -74,6 +74,42 @@ interface GhIssue {
 
 // fetchIssues returns issues mapped to the app's Issue shape, or null on any
 // failure. Pull requests (which the issues endpoint also returns) are dropped.
+// decodeBase64 decodes a base64 string to UTF-8 text (GitHub returns file
+// contents base64-encoded).
+function decodeBase64(b64: string): string {
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder("utf-8").decode(bytes);
+}
+
+interface GhReadmeRaw {
+    content?: string;
+    encoding?: string;
+}
+
+// fetchReadme returns the repo's README as markdown (decoded from the GitHub
+// API's base64), cached. Null when the repo has no README, or on a fetch failure
+// (rate-limit / offline) — the caller shows a fallback.
+export async function fetchReadme(owner: string, repo: string): Promise<string | null> {
+    const key = `readme.${owner}/${repo}`.toLowerCase();
+    const cached = cacheGet<string>(key);
+    if (cached != null) return cached;
+    if (inFlight.has(key)) return inFlight.get(key) as Promise<string | null>;
+    const p = (async (): Promise<string | null> => {
+        const raw = await ghFetch<GhReadmeRaw>(`/repos/${owner}/${repo}/readme`);
+        if (!raw || !raw.content) return null;
+        const text = decodeBase64(raw.content.replace(/\s/g, ""));
+        cacheSet(key, text);
+        return text;
+    })();
+    inFlight.set(key, p);
+    try {
+        return await p;
+    } finally {
+        inFlight.delete(key);
+    }
+}
+
 export async function fetchIssues(owner: string, repo: string): Promise<Issue[] | null> {
     const key = `issues.${owner}/${repo}`;
     const cached = cacheGet<Issue[]>(key);

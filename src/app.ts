@@ -215,6 +215,8 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.screen = "package";
     state.pkgTab = "readme";
     state.sub = null;
+    state.readme = null;
+    state.readmeLoading = !!github.parseRepo(pkg.repository);
     state.composerOpen = false;
     state.draftRating = 0;
     state.hoverRating = 0;
@@ -254,6 +256,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     render();
     enrichAvatars(); // author/contributor profile pics
     enrichGithubStars(); // real GitHub stargazer count
+    enrichReadme(); // the repo's real README from GitHub
     // install history for the sidebar sparkline, and comments for the tab count.
     void api.loadInstalls(detail).then((r) => {
         if (state.pkg === detail) {
@@ -401,6 +404,24 @@ function enrichAvatars(): void {
 // Show the package's real GitHub stargazer count (stars = GitHub stars). Uses
 // the cached value immediately if present, then refreshes from the API. Failures
 // (rate-limit / offline) leave the seed count in place.
+// Fetch the package repo's real README from GitHub (client-side, cached) and show
+// it in the Readme tab.
+function enrichReadme(): void {
+    const p = state.pkg;
+    if (!p) return;
+    const repo = github.parseRepo(p.repository);
+    if (!repo) {
+        state.readmeLoading = false;
+        return;
+    }
+    void github.fetchReadme(repo.owner, repo.repo).then((md) => {
+        if (state.pkg !== p) return;
+        state.readme = md;
+        state.readmeLoading = false;
+        if (state.screen === "package") render();
+    });
+}
+
 function enrichGithubStars(): void {
     const p = state.pkg;
     if (!p) return;
