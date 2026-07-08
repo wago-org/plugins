@@ -72,13 +72,17 @@ export function normalizePackage(raw: RawPackage): Package {
     const latest = versions.find((v) => v.latest) || versions[0];
     const installsWeek =
         raw.installsWeek ?? (raw as { installBaseWeek?: number }).installBaseWeek ?? 0;
+    const tags = raw.tags || [];
+    const keywords = raw.keywords || raw.tags || [];
     return {
         name: raw.name || "",
         short: raw.short || "",
         description: raw.description || "",
         category: raw.category || "",
-        tags: raw.tags || [],
-        keywords: raw.keywords || raw.tags || [],
+        tags,
+        keywords,
+        // Precomputed once so realtime search is a plain substring scan per keystroke.
+        search: `${raw.short || ""} ${raw.name || ""} ${raw.description || ""} ${tags.join(" ")} ${keywords.join(" ")}`.toLowerCase(),
         license: raw.license || "",
         repository: raw.repository || "",
         homepage: raw.homepage,

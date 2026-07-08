@@ -485,7 +485,11 @@ export function filterPackages(s: AppState): Package[] {
         if (s.verified && !p.verified) return false;
         if (activeCats.length && !activeCats.includes(p.category)) return false;
         if (q) {
-            const hay = `${p.short} ${p.name} ${p.description} ${p.tags.join(" ")} ${(p.keywords || []).join(" ")}`.toLowerCase();
+            // Use the haystack precomputed at load time; fall back for any package
+            // that didn't go through normalizePackage.
+            const hay =
+                p.search ??
+                `${p.short} ${p.name} ${p.description} ${p.tags.join(" ")} ${(p.keywords || []).join(" ")}`.toLowerCase();
             if (!hay.includes(q)) return false;
         }
         return true;

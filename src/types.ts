@@ -125,6 +125,7 @@ export interface Package {
     unpackedKB?: number;
 
     // derived / backend-provided
+    search?: string; // precomputed lowercased haystack (short+name+desc+tags+keywords)
     starred?: boolean;
     installsWeek: number;
     installsWeekLabel: string;

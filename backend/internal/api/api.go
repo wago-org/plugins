@@ -98,10 +98,11 @@ func (a *App) refreshCache() {
 	details := make(map[string][]byte, len(all))
 	for _, p := range pkgs {
 		dec := a.decoratePackage(p, "")
-		out = append(out, dec)
+		// Cache the full detail first, then trim the same map for the lean list.
 		if b, err := json.Marshal(dec); err == nil {
 			details[p.Short] = b
 		}
+		out = append(out, trimForList(dec))
 	}
 	if b, err := json.Marshal(map[string]any{"packages": out, "total": len(out)}); err == nil {
 		a.list.list = b

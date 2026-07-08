@@ -32,9 +32,19 @@ func (a *App) handleListPackages(w http.ResponseWriter, r *http.Request) {
 	viewer := a.viewerID(r)
 	out := make([]map[string]any, 0, len(pkgs))
 	for _, p := range pkgs {
-		out = append(out, a.decoratePackage(p, viewer))
+		out = append(out, trimForList(a.decoratePackage(p, viewer)))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"packages": out, "total": len(out)})
+}
+
+// trimForList drops the heavy, detail-only fields from a decorated package so the
+// browse/search list payload stays lean (the /api/packages/{short} detail call
+// carries the full record). Mutates and returns m.
+func trimForList(m map[string]any) map[string]any {
+	delete(m, "versions")
+	delete(m, "subpackages")
+	delete(m, "readme")
+	return m
 }
 
 // handleGetPackage returns a single package (matched by short or module name).
