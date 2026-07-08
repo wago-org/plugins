@@ -340,60 +340,62 @@ button {
     color: var(--text);
 }
 
-/* highlight.js token theme — dark, matched to the palette. Scoped to READMEs. */
-.readme .md code.hljs {
-    color: #e7e0ff;
-}
-.readme .md .hljs-comment,
-.readme .md .hljs-quote {
+/* Prism token theme — dark, matched to the palette. Scoped to READMEs. */
+.readme .md .token.comment,
+.readme .md .token.prolog,
+.readme .md .token.doctype,
+.readme .md .token.cdata {
     color: var(--muted);
     font-style: italic;
 }
-.readme .md .hljs-keyword,
-.readme .md .hljs-selector-tag,
-.readme .md .hljs-literal,
-.readme .md .hljs-doctag,
-.readme .md .hljs-meta .hljs-keyword {
+.readme .md .token.punctuation {
+    color: var(--soft);
+}
+.readme .md .token.keyword,
+.readme .md .token.tag,
+.readme .md .token.selector,
+.readme .md .token.important,
+.readme .md .token.atrule,
+.readme .md .token.deleted {
     color: var(--pink);
 }
-.readme .md .hljs-string,
-.readme .md .hljs-regexp,
-.readme .md .hljs-addition {
+.readme .md .token.string,
+.readme .md .token.char,
+.readme .md .token.attr-value,
+.readme .md .token.regex,
+.readme .md .token.inserted,
+.readme .md .token.url {
     color: var(--green);
 }
-.readme .md .hljs-number,
-.readme .md .hljs-symbol,
-.readme .md .hljs-attr,
-.readme .md .hljs-attribute,
-.readme .md .hljs-variable,
-.readme .md .hljs-template-variable,
-.readme .md .hljs-selector-attr {
+.readme .md .token.number,
+.readme .md .token.boolean,
+.readme .md .token.constant,
+.readme .md .token.symbol {
     color: #f0b072;
 }
-.readme .md .hljs-title,
-.readme .md .hljs-title.function_,
-.readme .md .hljs-section,
-.readme .md .hljs-name,
-.readme .md .hljs-selector-id,
-.readme .md .hljs-selector-class {
+.readme .md .token.function,
+.readme .md .token.class-name,
+.readme .md .token.title {
     color: var(--lilac);
 }
-.readme .md .hljs-built_in,
-.readme .md .hljs-type,
-.readme .md .hljs-class .hljs-title,
-.readme .md .hljs-title.class_ {
+.readme .md .token.builtin,
+.readme .md .token.property,
+.readme .md .token.attr-name,
+.readme .md .token.variable,
+.readme .md .token.symbol {
     color: #8ec9ff;
 }
-.readme .md .hljs-meta,
-.readme .md .hljs-punctuation {
-    color: var(--muted);
+.readme .md .token.operator,
+.readme .md .token.entity {
+    color: var(--dim);
 }
-.readme .md .hljs-deletion {
-    color: var(--pink);
+.readme .md .token.namespace {
+    opacity: 0.75;
 }
-.readme .md .hljs-emphasis {
+.readme .md .token.italic {
     font-style: italic;
 }
-.readme .md .hljs-strong {
+.readme .md .token.bold,
+.readme .md .token.important {
     font-weight: 700;
 }

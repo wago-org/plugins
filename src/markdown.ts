@@ -19,14 +19,15 @@ type Purify = {
     sanitize(dirty: string, cfg?: Record<string, unknown>): string;
     addHook(entryPoint: string, cb: (node: Element) => void): void;
 };
-type Hljs = {
-    highlight(code: string, opts: { language: string; ignoreIllegals?: boolean }): { value: string };
-    getLanguage(name: string): unknown;
+// Vendored highlighter (Prism grammars via refractor) — see assets/vendor.
+type Highlighter = {
+    highlight(code: string, lang: string): string | null; // Prism-classed HTML, or null if unsupported
+    supports(lang: string): boolean;
 };
 
 let marked: MarkedFn | null = null;
 let purify: Purify | null = null;
-let hljs: Hljs | null = null;
+let highlighter: Highlighter | null = null;
 let ready = false;
 
 // Conservative allow-list: standard Markdown output plus links, code, tables.
@@ -45,23 +46,22 @@ const ALLOWED_ATTR = ["href", "title", "align", "start"];
 // images, task-list checkboxes, <details>, and <kbd>. Comment/review bodies stay
 // on the strict list above.
 const RICH_TAGS = [...ALLOWED_TAGS, "img", "input", "details", "summary", "kbd", "picture", "source"];
-// `class` is allowed so highlight.js's `hljs-*` token spans survive sanitizing.
+// `class` is allowed so the highlighter's `token` spans survive sanitizing.
 const RICH_ATTR = [...ALLOWED_ATTR, "src", "alt", "width", "height", "loading", "type", "checked", "disabled", "open", "srcset", "media", "class"];
 
 // highlightBlocks applies syntax highlighting to fenced code blocks in-place, the
 // way GitHub does: only blocks with an explicit, recognised language. The result
-// is `<span class="hljs-…">` tokens that the theme in tokens.css colours.
+// is `<span class="token …">` spans that the theme in tokens.css colours.
 function highlightBlocks(rawHtml: string): string {
-    if (!hljs || typeof DOMParser === "undefined") return rawHtml;
+    if (!highlighter || typeof DOMParser === "undefined") return rawHtml;
     try {
         const doc = new DOMParser().parseFromString(`<body>${rawHtml}</body>`, "text/html");
         doc.querySelectorAll("pre > code").forEach((code) => {
             const m = (code.getAttribute("class") || "").match(/language-([\w+#-]+)/i);
             const lang = m && m[1] ? m[1].toLowerCase() : "";
-            if (!lang || !hljs!.getLanguage(lang)) return; // unlabeled / unknown → leave plain
-            const out = hljs!.highlight(code.textContent || "", { language: lang, ignoreIllegals: true }).value;
-            code.innerHTML = out;
-            code.setAttribute("class", `${code.getAttribute("class") || ""} hljs`.trim());
+            if (!lang || !highlighter!.supports(lang)) return; // unlabeled / unknown → leave plain
+            const out = highlighter!.highlight(code.textContent || "", lang);
+            if (out != null) code.innerHTML = out;
         });
         return doc.body.innerHTML;
     } catch {
@@ -100,20 +100,20 @@ function resolveRepoUrl(base: NonNullable<MdOptions["base"]>, url: string, image
 export async function initMarkdown(): Promise<void> {
     if (ready) return;
     try {
-        const [markedMod, purifyMod, hljsMod] = await Promise.all([
+        const [markedMod, purifyMod, hlMod] = await Promise.all([
             // Vendored ESM under assets/vendor — untyped, resolved at runtime
             // relative to the compiled module (assets/js → assets/vendor).
             // @ts-expect-error — no type declarations for the vendored bundle.
             import("../vendor/marked.esm.js"),
             // @ts-expect-error — no type declarations for the vendored bundle.
             import("../vendor/purify.es.mjs"),
-            // highlight.js is optional — its failure must not disable markdown.
+            // The highlighter is optional — its failure must not disable markdown.
             // @ts-expect-error — no type declarations for the vendored bundle.
             import("../vendor/highlight.esm.js").catch(() => null),
         ]);
         marked = markedMod.marked as unknown as MarkedFn;
         purify = purifyMod.default as unknown as Purify;
-        hljs = hljsMod ? (hljsMod.default as unknown as Hljs) : null;
+        highlighter = hlMod ? (hlMod as unknown as Highlighter) : null;
         marked.setOptions({ gfm: true, breaks: true });
         // Force external links to open safely in a new tab, but leave internal
         // in-app links (#/… — e.g. @mention profile links) navigating in place.
