@@ -29,7 +29,14 @@ type orgRoleCache struct {
 // package is owned by a GitHub organization — for any owner (admin) of that org,
 // checked with the viewer's stored GitHub token and cached for orgRoleTTL.
 func (a *App) canModeratePackage(viewer *model.User, p model.Package) bool {
-	if viewer == nil || p.OwnerLogin == "" {
+	if viewer == nil {
+		return false
+	}
+	// Site admins moderate everything.
+	if viewer.Admin {
+		return true
+	}
+	if p.OwnerLogin == "" {
 		return false
 	}
 	if strings.EqualFold(viewer.Login, p.OwnerLogin) {

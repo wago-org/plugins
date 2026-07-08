@@ -73,6 +73,7 @@ func (a *App) handleCallback(w http.ResponseWriter, r *http.Request) {
 	u = sanitize(u)
 	u.GitHubToken = token
 	u.GitHubScopes = scope
+	u.Admin = a.Cfg.IsAdmin(u.Login)
 	if err := a.Store.UpsertUser(u); err != nil {
 		log.Printf("oauth: upsert user: %v", err)
 		fail("store")

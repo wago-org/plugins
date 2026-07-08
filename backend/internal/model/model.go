@@ -36,6 +36,7 @@ type Subpackage struct {
 	Stability   Stability     `json:"stability"`
 	Tags        []string      `json:"tags"`
 	Compat      Compatibility `json:"compatibility"`
+	Readme      string        `json:"readme,omitempty"`
 }
 
 // Manifest is a wago-plugin/v1 document: a Go module that ships one or more
@@ -139,6 +140,10 @@ type User struct {
 	// api.sanitize — these never reach the client.
 	GitHubToken  string `json:"githubToken,omitempty"`
 	GitHubScopes string `json:"githubScopes,omitempty"`
+
+	// Admin grants site-wide moderation (derived from config.AdminLogins at
+	// sign-in). Exposed to the client so the UI can surface admin affordances.
+	Admin bool `json:"admin,omitempty"`
 }
 
 // Review is the persisted form of a package review. Author identity is joined in
@@ -183,6 +188,7 @@ type Package struct {
 	Verified          bool          `json:"verified"`
 	Official          bool          `json:"official"`
 	OwnerLogin        string        `json:"ownerLogin"`
+	Readme            string        `json:"readme,omitempty"`
 	DeprecatedMessage string        `json:"deprecatedMessage,omitempty"`
 	Compat            Compatibility `json:"compatibility"`
 	Capabilities      []string      `json:"capabilities"`

@@ -20,6 +20,7 @@ export interface Subpackage {
     stability: Stability;
     tags: string[];
     compatibility: Compatibility;
+    readme?: string; // subpackage-specific readme (markdown); optional
 }
 
 export interface Author {
@@ -104,6 +105,7 @@ export interface Package {
     verified: boolean;
     official?: boolean;
     ownerLogin?: string;
+    readme?: string; // module-level readme (markdown); fallback for subpackages
     deprecatedMessage?: string;
     compatibility: Compatibility;
     capabilities: string[];
@@ -208,6 +210,7 @@ export interface User {
     // Whether the user granted the public_repo scope, letting the registry star
     // repos on their behalf. Derived server-side; never the raw token.
     canStar?: boolean;
+    admin?: boolean; // site-wide admin (moderate any package's discussion)
     initial: string;
     bg: string;
 }

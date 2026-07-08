@@ -88,9 +88,11 @@ async function route(): Promise<void> {
         showAccount(tab, false);
         return;
     }
-    // Two segments = a package: /{owner}/{short} (or legacy /p/{short}).
+    // Two segments = a package: /{owner}/{short} (or legacy /p/{short}); a third
+    // segment opens that package's subpackage page: /{owner}/{short}/{id}.
     if (parts.length >= 2) {
         await openPackage(parts[1], false);
+        if (parts.length >= 3) openSub(decodeURIComponent(parts[2]), false);
         return;
     }
     // Single segment = your own account (when it's your login), else a user/org.
@@ -171,6 +173,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.pkg = pkg;
     state.screen = "package";
     state.pkgTab = "readme";
+    state.sub = null;
     state.composerOpen = false;
     state.draftRating = 0;
     state.hoverRating = 0;
@@ -762,6 +765,12 @@ async function deleteEmail(address: string): Promise<void> {
 
 function setPkgTab(tab: PkgTab): void {
     state.pkgTab = tab;
+    // Selecting any tab leaves an open subpackage page and returns to the package
+    // URL. A tab switch pushes the package path so the sub URL is left behind.
+    if (state.sub) {
+        state.sub = null;
+        if (state.pkg) pushUrl(pkgPath(state.pkg));
+    }
     render();
     if (tab === "reviews" && state.reviews.length === 0 && !state.reviewsLoading) {
         void refreshReviews();
@@ -769,6 +778,18 @@ function setPkgTab(tab: PkgTab): void {
     if (tab === "comments" && state.comments.length === 0 && !state.commentsLoading) {
         void refreshComments();
     }
+}
+
+// Open a subpackage's page (its readme) at /{owner}/{short}/{id}. `push` is
+// false when arriving via the router (URL already correct).
+function openSub(id: string, push = true): void {
+    if (!state.pkg) return;
+    const e = state.pkg.subpackages.find((x) => x.id === id);
+    if (!e) return;
+    state.sub = id;
+    if (push) pushUrl(`${pkgPath(state.pkg)}/${encodeURIComponent(id)}`);
+    render();
+    scrollTop();
 }
 
 // ── event delegation ─────────────────────────────────────────────────────────
@@ -839,6 +860,9 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             break;
         case "tab":
             setPkgTab((arg as PkgTab) || "readme");
+            break;
+        case "open-sub":
+            if (arg) openSub(arg);
             break;
         case "star":
             void toggleStar();

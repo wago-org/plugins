@@ -5,7 +5,7 @@
 import type { Comment, Issue, InstallPoint, Package, Registry, Review, User, ViewUser } from "./types.js";
 
 export type Screen = "home" | "search" | "package" | "auth" | "account" | "user";
-export type PkgTab = "readme" | "reviews" | "comments" | "issues" | "versions";
+export type PkgTab = "readme" | "reviews" | "comments" | "issues" | "versions" | "subpackages";
 export type Sort = "popular" | "quality" | "recent";
 export type AcctTab = "profile" | "plugins" | "stars" | "settings";
 
@@ -23,6 +23,7 @@ export interface AppState {
     // package view
     pkg: Package | null;
     pkgTab: PkgTab;
+    sub: string | null; // id of the subpackage whose page is open (else null)
     reviews: Review[];
     reviewsSummary: { average: number; count: number };
     reviewsLoading: boolean;
@@ -94,6 +95,7 @@ export const state: AppState = {
 
     pkg: null,
     pkgTab: "readme",
+    sub: null,
     reviews: [],
     reviewsSummary: { average: 0, count: 0 },
     reviewsLoading: false,

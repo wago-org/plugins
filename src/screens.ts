@@ -492,25 +492,30 @@ export function filterPackages(s: AppState): Package[] {
 export function packageScreen(s: AppState): string {
     const p = s.pkg!;
     const openIssueCount = (p.issues || []).filter((i) => i.state === "open").length;
+    const tabEl = (k: string, label: string, extra = ""): string => {
+        const on = s.pkgTab === k;
+        return `<span data-act="tab" data-arg="${k}" style="font-size:14px;font-weight:${on ? "700" : "500"};color:${on ? C.text : C.muted};padding-bottom:12px;border-bottom:${on ? `2px solid ${C.lilac}` : "2px solid transparent"};margin-bottom:-1px;cursor:pointer;${extra}">${esc(label)}</span>`;
+    };
     const tabs = [
-        { k: "readme", l: "Readme" },
-        { k: "reviews", l: `Reviews · ${s.reviewsSummary.count || p.ratingCount}` },
-        { k: "comments", l: `Comments · ${s.comments.length}` },
-        { k: "issues", l: `Issues · ${openIssueCount}` },
-        { k: "versions", l: `Versions · ${p.versions.length}` },
-    ]
-        .map((t) => {
-            const on = s.pkgTab === t.k;
-            return `<span data-act="tab" data-arg="${t.k}" style="font-size:14px;font-weight:${on ? "700" : "500"};color:${on ? C.text : C.muted};padding-bottom:12px;border-bottom:${on ? `2px solid ${C.lilac}` : "2px solid transparent"};margin-bottom:-1px;cursor:pointer">${esc(t.l)}</span>`;
-        })
-        .join("");
+        tabEl("readme", "Readme"),
+        tabEl("reviews", `Reviews · ${s.reviewsSummary.count || p.ratingCount}`),
+        tabEl("comments", `Comments · ${s.comments.length}`),
+        tabEl("issues", `Issues · ${openIssueCount}`),
+        tabEl("versions", `Versions · ${p.versions.length}`),
+    ].join("");
+    // Subpackages tab is anchored to the far right of the tab bar.
+    const subTab = p.subpackages.length
+        ? tabEl("subpackages", `Subpackages · ${p.subpackages.length}`, "margin-left:auto")
+        : "";
 
     const badges = `${p.verified ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.green};padding:5px 11px;border-radius:100px">✦ verified</span>` : ""}<span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};border:1px solid ${C.line2};padding:5px 11px;border-radius:100px">${esc(p.version)}</span>`;
 
     // bookmark (save-for-later, per-browser) + star, to the right of the badges
     const bm = s.bookmarked;
     const bookmarkBtn = `<button data-act="bookmark" title="${bm ? "Saved" : "Save for later"}" style="display:inline-flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:${C.text};background:${bm ? C.panel : "transparent"};border:1px solid ${bm ? C.lilac : C.line2};padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .15s">${bookmarkIcon(15, bm ? C.lilac : C.muted, bm)} ${bm ? "Saved" : "Save"}</button>`;
-    const starBtn = `<button data-act="star" title="${s.starred ? "In your stars — opens the repo on GitHub" : "Star this repository on GitHub"}" style="display:inline-flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:${C.text};background:${s.starred ? C.panel : "transparent"};border:1px solid ${s.starred ? C.lilac : C.line2};padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .15s"><span style="font-size:15px;color:${s.starred ? C.lilac : C.muted}">★</span> ${s.starred ? "Starred" : "Star on GitHub ↗"} <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;background:${C.deep};padding:2px 8px;border-radius:6px">${s.starCount.toLocaleString()}</span></button>`;
+    const starBtn = `<button data-act="star" title="${s.starred ? "In your stars — opens the repo on GitHub" : "Star this repository on GitHub"}" style="display:inline-flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:${C.text};background:${s.starred ? C.panel : "transparent"};border:1px solid ${s.starred ? C.lilac : C.line2};padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .15s"><span style="font-size:15px;color:${s.starred ? C.lilac : C.muted}">★</span> ${s.starred ? "Starred" : "Star"} <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;background:${C.deep};padding:2px 8px;border-radius:6px">${s.starCount.toLocaleString()}</span></button>`;
+    // Opens the source repository on GitHub, alongside save + star.
+    const repoBtn = `<a href="${escAttr(p.repository)}" target="_blank" rel="noopener" title="Open the repository on GitHub" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:8px 14px;border-radius:9px;cursor:pointer;transition:all .15s"><span style="font-size:14px;color:${C.muted}">⎇</span> Repo ↗</a>`;
 
     return `
 <div style="padding:28px 0 72px">
@@ -519,7 +524,7 @@ export function packageScreen(s: AppState): string {
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
     <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.name)}</h1>
     ${badges}
-    <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}</div>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}${repoBtn}</div>
   </div>
   <p style="font-size:17px;line-height:1.6;color:${C.soft};margin:0 0 14px;max-width:680px">${esc(p.description)}</p>
   <div style="display:flex;align-items:center;gap:18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin:0 0 28px;flex-wrap:wrap">
@@ -531,8 +536,12 @@ export function packageScreen(s: AppState): string {
   ${p.deprecatedMessage ? deprecationBanner(p.deprecatedMessage) : ""}
   <div style="display:grid;grid-template-columns:1fr 300px;gap:36px;align-items:start">
     <main style="min-width:0">
-      <div style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}</div>
-      ${pkgTabBody(s)}
+      ${
+          s.sub
+              ? subpackageDetail(s)
+              : `<div style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}${subTab}</div>
+      ${pkgTabBody(s)}`
+      }
     </main>
     ${pkgSidebar(s)}
   </div>
@@ -586,9 +595,51 @@ function pkgTabBody(s: AppState): string {
             return issuesTab(s);
         case "versions":
             return versionsTab(s);
+        case "subpackages":
+            return subpackagesTab(s);
         default:
             return readmeTab(s);
     }
+}
+
+// The Subpackages tab: intro + the grid of subpackage cards (each opens its own
+// page). Replaces the old block that lived at the bottom of the readme.
+function subpackagesTab(s: AppState): string {
+    const p = s.pkg!;
+    if (!p.subpackages?.length) {
+        return `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel};border-radius:12px">This module ships no subpackages.</div>`;
+    }
+    return `
+  <h2 style="font-weight:800;font-size:22px;letter-spacing:-0.5px;margin:0 0 8px">Subpackages <span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:${C.muted};font-weight:500">${p.subpackages.length}</span></h2>
+  <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 18px;max-width:640px">Each is an independently importable wago extension, version-stamped and documented on its own page.</p>
+  <div style="display:flex;flex-direction:column;gap:12px">${subpackageCards(p)}</div>`;
+}
+
+// A single subpackage's page: its own readme (or the module readme as a
+// fallback), reached by clicking a card or via /{owner}/{short}/{id}.
+function subpackageDetail(s: AppState): string {
+    const p = s.pkg!;
+    const e = p.subpackages.find((x) => x.id === s.sub);
+    if (!e) {
+        // Unknown subpackage id — fall back to the subpackages listing.
+        return subpackagesTab(s);
+    }
+    const body = e.readme || p.readme || "";
+    const readmeHtml = body
+        ? mdBlock(body)
+        : `<p style="font-size:15px;line-height:1.65;color:${C.soft};margin:0 0 20px">${esc(e.description)}</p>
+       <div style="font-size:13px;color:${C.muted};background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:16px 18px">No dedicated readme was provided for this subpackage.</div>`;
+    return `
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:18px">
+    <span data-act="tab" data-arg="subpackages" style="color:${C.lilac};cursor:pointer">← ${esc(p.short)} subpackages</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+    <h2 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;letter-spacing:-0.5px;margin:0">${esc(e.id)}</h2>
+    ${stabilityPill(e.stability)}
+    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted}">v${esc(e.version)}</span>
+  </div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted};margin-bottom:20px">import <span style="color:${C.lilac}">"${esc(e.import)}"</span> · <a href="https://pkg.go.dev/${escAttr(e.import)}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">docs ↗</a></div>
+  ${readmeHtml}`;
 }
 
 function readmeTab(s: AppState): string {
@@ -610,22 +661,21 @@ rt.<span style="color:${C.lilac}">Use</span>(${esc(p.short.replace(/[^a-z0-9]/gi
     <div style="padding:10px 16px;border-bottom:1px solid ${C.line};font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">shell / main.go</div>
     <pre style="margin:0;padding:18px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.85;color:#e7e0ff;overflow-x:auto">${code}</pre>
   </div>
-
-  ${subpackagesBlock(p)}
 </div>`;
 }
 
-function subpackagesBlock(p: Package): string {
-    if (!p.subpackages?.length) return "";
-    const rows = p.subpackages
+// The grid of subpackage cards. Each opens the subpackage's own page in-app
+// (data-act=open-sub) at /{owner}/{short}/{id}.
+function subpackageCards(p: Package): string {
+    return p.subpackages
         .map(
             (e: Subpackage) => `
-      <a href="https://pkg.go.dev/${escAttr(e.import)}" target="_blank" rel="noopener" class="ext-card" style="text-decoration:none;display:block;background:${C.deep};border:1px solid ${C.line};border-radius:12px;padding:16px 18px">
+      <a href="${pkgPath(p)}/${escAttr(e.id)}" data-act="open-sub" data-arg="${escAttr(e.id)}" class="ext-card" style="text-decoration:none;display:block;background:${C.deep};border:1px solid ${C.line};border-radius:12px;padding:16px 18px;cursor:pointer">
         <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px">
           <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.lilac}">${esc(e.id)}</span>
           ${stabilityPill(e.stability)}
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">v${esc(e.version)}</span>
-          <span style="margin-left:auto;color:${C.muted};font-size:12px">↗ docs</span>
+          <span style="margin-left:auto;color:${C.muted};font-size:12px">open →</span>
         </div>
         <p style="font-size:13.5px;line-height:1.55;color:${C.soft};margin:0 0 10px">${esc(e.description)}</p>
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};margin-bottom:8px">import <span style="color:${C.lilac}">"${esc(e.import)}"</span></div>
@@ -633,10 +683,6 @@ function subpackagesBlock(p: Package): string {
       </a>`,
         )
         .join("");
-    return `
-  <h3 style="font-weight:700;font-size:18px;margin:30px 0 12px">Subpackages <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.muted};font-weight:500">${p.subpackages.length}</span></h3>
-  <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 14px">This module ships the following subpackages — each is an independently importable wago extension, version-stamped and documented on its own page.</p>
-  <div style="display:flex;flex-direction:column;gap:12px">${rows}</div>`;
 }
 
 function reviewsTab(s: AppState): string {
@@ -1001,21 +1047,21 @@ function pkgSidebar(s: AppState): string {
     const spark = sparkline(norm);
     const installCmd = `wago pkg add ${p.name}`;
 
-    const meta: [string, string][] = [
-        ["Last publish", relative(p.updatedAt)],
-        ["Unpacked size", p.unpackedKB ? `${p.unpackedKB} kB` : "—"],
-        ["Forks", (p.forks ?? 0).toLocaleString()],
-        ["Owner", p.ownerLogin ? `@${p.ownerLogin}` : "—"],
-    ];
-    const metaRows = meta
-        .map(
-            ([label, value], i) => `
-        <div style="padding:15px 0;border-top:${i === 0 ? "none" : `1px solid ${C.line}`}">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:6px">${esc(label)}</div>
-          <div style="font-size:14.5px;color:${C.text};font-weight:600;word-break:break-all">${esc(value)}</div>
-        </div>`,
-        )
-        .join("");
+    // A metadata cell (label + value); rendered full-width or half-width.
+    const metaCell = (label: string, value: string): string =>
+        `<div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:6px">${esc(label)}</div><div style="font-size:14.5px;color:${C.text};font-weight:600;word-break:break-all">${esc(value)}</div></div>`;
+    const metaRow = (inner: string, top: boolean): string =>
+        `<div style="padding:15px 0;border-top:${top ? `1px solid ${C.line}` : "none"}">${inner}</div>`;
+    const splitRow = (a: string, b: string, top: boolean): string =>
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:15px 0;border-top:${top ? `1px solid ${C.line}` : "none"}">${a}${b}</div>`;
+
+    const openIssues = (p.issues || []).filter((i) => i.state === "open").length;
+    const metaRows =
+        metaRow(metaCell("Last publish", relative(p.updatedAt)), false) +
+        metaRow(metaCell("Unpacked size", p.unpackedKB ? `${p.unpackedKB} kB` : "—"), true) +
+        // Forks + Issues share a single split row.
+        splitRow(metaCell("Forks", (p.forks ?? 0).toLocaleString()), metaCell("Issues", openIssues.toLocaleString()), true) +
+        metaRow(metaCell("Owner", p.ownerLogin ? `@${p.ownerLogin}` : "—"), true);
 
     // compatibility (engines + platforms)
     const engines = p.compatibility?.engines || {};
@@ -1083,7 +1129,7 @@ function pkgSidebar(s: AppState): string {
     const weekLabel = compactNum(s.installSeries.slice(-7).reduce((a, b) => a + b.count, 0) || p.installsWeek);
 
     return `
-    <aside style="display:flex;flex-direction:column;gap:0;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:4px 22px 8px">
+    <aside style="display:flex;flex-direction:column;gap:0;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:4px 22px 22px">
       <div style="padding:16px 0 4px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:9px">Install</div>
         <div style="background:${C.deep};border:1px solid ${C.line};border-radius:10px;display:flex;align-items:center;gap:8px;padding:10px 12px">
@@ -1121,7 +1167,7 @@ function pkgSidebar(s: AppState): string {
               : ""
       }
       ${kwSection}
-      <a href="${escAttr(p.repository)}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};padding:11px;border-radius:10px">Repository ↗</a>
+      <a href="${escAttr(p.repository)}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;margin-top:14px;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};padding:11px;border-radius:10px">Repository ↗</a>
     </aside>`;
 }
 

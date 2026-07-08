@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"log"
 	"os"
+	"strings"
 )
 
 // Config is the fully-resolved runtime configuration.
@@ -32,6 +33,20 @@ type Config struct {
 	SMTPUser string
 	SMTPPass string
 	SMTPFrom string
+
+	// AdminLogins are GitHub logins granted site-wide admin (moderate any
+	// package's discussion, etc.). Set via ADMIN_LOGINS (comma-separated).
+	AdminLogins []string
+}
+
+// IsAdmin reports whether the given GitHub login has site-wide admin rights.
+func (c Config) IsAdmin(login string) bool {
+	for _, a := range c.AdminLogins {
+		if strings.EqualFold(a, login) {
+			return true
+		}
+	}
+	return false
 }
 
 // getenv returns the env var, or def when unset/empty.
@@ -40,6 +55,17 @@ func getenv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// splitList parses a comma-separated env value into a trimmed, non-empty slice.
+func splitList(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // Load builds a Config from environment variables, applying defaults and
@@ -62,6 +88,7 @@ func Load() (Config, error) {
 		SMTPUser:           os.Getenv("SMTP_USER"),
 		SMTPPass:           os.Getenv("SMTP_PASS"),
 		SMTPFrom:           os.Getenv("SMTP_FROM"),
+		AdminLogins:        splitList(os.Getenv("ADMIN_LOGINS")),
 	}
 
 	if secret := os.Getenv("SESSION_SECRET"); secret != "" {
