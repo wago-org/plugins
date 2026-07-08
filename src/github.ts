@@ -98,8 +98,11 @@ export async function fetchReadme(owner: string, repo: string, ref?: string): Pr
     if (cached != null) return cached;
     if (inFlight.has(key)) return inFlight.get(key) as Promise<string | null>;
     const p = (async (): Promise<string | null> => {
-        const path = `/repos/${owner}/${repo}/readme` + (ref ? `?ref=${encodeURIComponent(ref)}` : "");
-        const raw = await ghFetch<GhReadmeRaw>(path);
+        const base = `/repos/${owner}/${repo}/readme`;
+        let raw = await ghFetch<GhReadmeRaw>(ref ? `${base}?ref=${encodeURIComponent(ref)}` : base);
+        // A pinned commit can be missing on GitHub (unpushed / rewritten history);
+        // fall back to the default branch so the current README still shows.
+        if ((!raw || !raw.content) && ref) raw = await ghFetch<GhReadmeRaw>(base);
         if (!raw || !raw.content) return null;
         const text = decodeBase64(raw.content.replace(/\s/g, ""));
         cacheSet(key, text);

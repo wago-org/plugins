@@ -413,7 +413,10 @@ function enrichReadme(): void {
         state.readmeLoading = false;
         if (state.screen === "package") render();
     };
-    const repo = github.parseRepo(p.repository);
+    // Prefer the repository URL, but fall back to the module path itself — a Go
+    // import path like "github.com/wago-org/wasi" already names the GitHub repo,
+    // so the README resolves even when `repository` wasn't recorded.
+    const repo = github.parseRepo(p.repository) || github.parseRepo(p.name);
     if (!repo) {
         settle();
         return;
