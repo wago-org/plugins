@@ -54,6 +54,7 @@ type Store interface {
 	AddComment(short, userID, body, parentID string) (model.Comment, error)
 	GetComment(id string) (model.Comment, bool)
 	UpdateComment(id, body string) (model.Comment, error)
+	SetCommentArchived(id string, archived bool) (model.Comment, error)
 	DeleteComment(id string) error
 
 	// Installs (keyed by package short id; dates are YYYY-MM-DD).

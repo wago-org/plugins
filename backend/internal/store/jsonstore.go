@@ -562,6 +562,19 @@ func (s *JSONStore) UpdateComment(id, body string) (model.Comment, error) {
 	return c, s.persistLocked()
 }
 
+// SetCommentArchived soft-hides or restores a comment.
+func (s *JSONStore) SetCommentArchived(id string, archived bool) (model.Comment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.doc.Comments[id]
+	if !ok {
+		return model.Comment{}, errors.New("comment not found")
+	}
+	c.Archived = archived
+	s.doc.Comments[id] = c
+	return c, s.persistLocked()
+}
+
 func (s *JSONStore) DeleteComment(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

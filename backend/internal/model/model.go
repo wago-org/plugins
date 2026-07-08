@@ -161,6 +161,8 @@ type Comment struct {
 	Body         string `json:"body"`
 	CreatedAt    string `json:"createdAt"`
 	ParentID     string `json:"parentId"`
+	// Archived soft-hides a comment (author or package owner) without deleting it.
+	Archived bool `json:"archived,omitempty"`
 }
 
 // Package is the stored registry record for a Go module that ships a wago

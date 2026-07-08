@@ -30,6 +30,7 @@ type App struct {
 	Email    *email.Sender
 	Device   *deviceAuth
 	list     *listCache
+	orgRoles orgRoleCache
 }
 
 // New builds an App and its auth dependencies from config and a store.
@@ -179,6 +180,7 @@ func (a *App) NewRouter() http.Handler {
 	mux.HandleFunc("GET /api/packages/{name}/comments", a.handleListComments)
 	mux.HandleFunc("POST /api/packages/{name}/comments", a.handleCreateComment)
 	mux.HandleFunc("POST /api/comments/{id}/vote", a.handleVoteComment)
+	mux.HandleFunc("POST /api/comments/{id}/archive", a.handleArchiveComment)
 	mux.HandleFunc("PUT /api/comments/{id}", a.handleUpdateComment)
 	mux.HandleFunc("DELETE /api/comments/{id}", a.handleDeleteComment)
 

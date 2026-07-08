@@ -665,6 +665,18 @@ export async function deleteComment(pkg: Package, id: string): Promise<void> {
     lsSet(LS.comments, store);
 }
 
+// archiveComment soft-hides (archived=true) or restores a comment. Server-side,
+// the comment's author or a moderator (package/org owner) may do this.
+export async function archiveComment(pkg: Package, id: string, archived: boolean): Promise<void> {
+    if (mode === "remote") {
+        await apiSend(`/api/comments/${id}/archive`, "POST", { archived });
+        return;
+    }
+    const store = lsGet<Record<string, Comment[]>>(LS.comments, {});
+    store[pkg.short] = (store[pkg.short] || []).map((c) => (c.id === id ? { ...c, archived } : c));
+    lsSet(LS.comments, store);
+}
+
 // ── install history ──────────────────────────────────────────────────────────
 
 export interface InstallsResult {

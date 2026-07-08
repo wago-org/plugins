@@ -58,6 +58,8 @@ export interface Review {
     body: string;
     createdAt: string;
     score?: number;
+    upvotes?: number;
+    downvotes?: number;
     myVote?: "up" | "down" | null;
     mine?: boolean;
     // derived for rendering
@@ -75,6 +77,7 @@ export interface Comment {
     body: string;
     createdAt: string;
     parentId?: string;
+    archived?: boolean; // soft-hidden by its author or the package owner
     // comment votes (mirrors reviews)
     score?: number;
     upvotes?: number;
@@ -84,6 +87,7 @@ export interface Comment {
     initial?: string;
     bg?: string;
     mine?: boolean;
+    canModerate?: boolean; // viewer is the package owner (may archive others')
 }
 
 export interface Package {
@@ -148,6 +152,9 @@ export interface ViewUser {
     publicRepos?: number;
     starsGiven?: number;
     claimed: boolean;
+    isOrg?: boolean; // GitHub Organization vs a person
+    orgs?: { login: string; avatarUrl: string }[]; // user's org memberships
+    members?: { login: string; avatarUrl: string }[]; // org's public members
 }
 
 export interface CategoryDef {

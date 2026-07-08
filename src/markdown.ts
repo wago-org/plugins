@@ -57,7 +57,9 @@ export async function initMarkdown(): Promise<void> {
         purify.addHook("afterSanitizeAttributes", (node) => {
             if (node.tagName === "A") {
                 const href = node.getAttribute("href") || "";
-                if (href.startsWith("#")) {
+                // Internal in-app links (/{login}, /{owner}/{short}) navigate in
+                // place; everything else opens in a new tab.
+                if (href.startsWith("/") || href.startsWith("#")) {
                     node.removeAttribute("target");
                     node.setAttribute("rel", "noopener");
                 } else {
@@ -84,7 +86,7 @@ export async function initMarkdown(): Promise<void> {
 function linkifyMentions(src: string): string {
     return src.replace(
         /(^|[\s([{><,;:!?])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)/g,
-        (_m, pre: string, login: string) => `${pre}[@${login}](#/u/${login})`,
+        (_m, pre: string, login: string) => `${pre}[@${login}](/${login})`,
     );
 }
 

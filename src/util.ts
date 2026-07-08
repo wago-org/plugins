@@ -108,6 +108,13 @@ export function relativeDate(iso: string): string {
     return "just now";
 }
 
+// Canonical in-app path for a package: /{owner}/{short} (e.g.
+// /wago-org/dragline-x64). Owner falls back to a placeholder segment; the router
+// resolves packages by their short (the second segment) regardless.
+export function pkgPath(p: { ownerLogin?: string; short: string }): string {
+    return `/${encodeURIComponent(p.ownerLogin || "packages")}/${encodeURIComponent(p.short)}`;
+}
+
 // Full date label from an ISO timestamp, e.g. "July 7, 2026". Formatted in UTC
 // so a join date renders as the same calendar day for every viewer. Empty on
 // bad input.

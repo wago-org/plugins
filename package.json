@@ -5,7 +5,7 @@
     "type": "module",
     "description": "The wago plugin registry — pkg.wago.sh",
     "scripts": {
-        "build": "tsc && rm -rf dist && mkdir -p dist && cp -r index.html assets data CNAME site.webmanifest dist/",
+        "build": "tsc && rm -rf dist && mkdir -p dist && cp -r index.html assets data CNAME site.webmanifest dist/ && cp index.html dist/404.html",
         "dev": "tsc --watch --preserveWatchOutput",
         "typecheck": "tsc --noEmit",
         "serve": "python3 -m http.server 8000"

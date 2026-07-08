@@ -277,12 +277,15 @@ type commentView struct {
 	Upvotes      int     `json:"upvotes"`
 	Downvotes    int     `json:"downvotes"`
 	MyVote       *string `json:"myVote"`
+	Archived     bool    `json:"archived"`
+	CanModerate  bool    `json:"canModerate"`
 }
 
 // buildCommentView joins author identity and vote tallies onto a comment. Votes
 // reuse the same opaque-id vote store as reviews (comment and review ids are both
-// random 16-byte hex, so they never collide).
-func (a *App) buildCommentView(c model.Comment, viewerID string) commentView {
+// random 16-byte hex, so they never collide). canModerate is true when the viewer
+// is the package owner (may archive others' comments).
+func (a *App) buildCommentView(c model.Comment, viewerID string, canModerate bool) commentView {
 	author, _ := a.Store.GetUser(c.UserID)
 	up, down := a.Store.VoteTally(c.ID)
 	return commentView{
@@ -298,6 +301,8 @@ func (a *App) buildCommentView(c model.Comment, viewerID string) commentView {
 		Upvotes:      up,
 		Downvotes:    down,
 		MyVote:       a.Store.MyVote(c.ID, viewerID),
+		Archived:     c.Archived,
+		CanModerate:  canModerate,
 	}
 }
 
@@ -307,11 +312,17 @@ func (a *App) handleListComments(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusNotFound, "package not found")
 		return
 	}
-	viewer := a.viewerID(r)
+	u := a.Sessions.CurrentUser(r)
+	viewer := ""
+	canModerate := false
+	if u != nil {
+		viewer = u.ID
+		canModerate = a.canModeratePackage(u, p)
+	}
 	raw := a.Store.CommentsForPackage(p.Short)
 	views := make([]commentView, 0, len(raw))
 	for _, c := range raw {
-		views = append(views, a.buildCommentView(c, viewer))
+		views = append(views, a.buildCommentView(c, viewer, canModerate))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"comments": views})
 }
@@ -393,7 +404,7 @@ func (a *App) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusInternalServerError, "store error")
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(c, u.ID))
+	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(c, u.ID, false))
 }
 
 // handleUpdateComment edits a comment's body. Only the comment's author may edit.
@@ -428,7 +439,45 @@ func (a *App) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusInternalServerError, "store error")
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(updated, u.ID))
+	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(updated, u.ID, false))
+}
+
+// handleArchiveComment soft-hides or restores a comment. The comment's author or
+// the package owner may archive it.
+func (a *App) handleArchiveComment(w http.ResponseWriter, r *http.Request) {
+	u := a.Sessions.CurrentUser(r)
+	if u == nil {
+		httpx.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	c, ok := a.Store.GetComment(r.PathValue("id"))
+	if !ok {
+		httpx.WriteError(w, http.StatusNotFound, "comment not found")
+		return
+	}
+	allowed := c.UserID == u.ID
+	if !allowed {
+		if p, ok := a.Store.GetPackage(c.PackageShort); ok {
+			allowed = a.canModeratePackage(u, p)
+		}
+	}
+	if !allowed {
+		httpx.WriteError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	var in struct {
+		Archived bool `json:"archived"`
+	}
+	if err := decodeJSON(w, r, &in, 1<<12); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	updated, err := a.Store.SetCommentArchived(c.ID, in.Archived)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, a.buildCommentView(updated, u.ID, false))
 }
 
 // handleDeleteReview removes the caller's review. Only the review's author may

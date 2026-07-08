@@ -154,6 +154,29 @@ func (g *GitHub) SetStar(token, owner, repo string, on bool) error {
 	return errors.New("github star failed: " + resp.Status)
 }
 
+// OrgRole returns the token user's membership role in org — "admin" for owners,
+// "member" otherwise — via GET /user/memberships/orgs/{org}. It returns an empty
+// role (and no error) when the user isn't an active member of the org; a non-nil
+// error only signals a transient/API failure the caller may choose to ignore.
+func (g *GitHub) OrgRole(token, org string) (string, error) {
+	m, err := ghGetJSON[struct {
+		State string `json:"state"`
+		Role  string `json:"role"`
+	}](token, "https://api.github.com/user/memberships/orgs/"+url.PathEscape(org))
+	if err != nil {
+		// A non-member yields 404, which ghGet surfaces as an error. Treat that as
+		// "no role" rather than a hard failure so callers don't special-case it.
+		if strings.Contains(err.Error(), "404") {
+			return "", nil
+		}
+		return "", err
+	}
+	if m.State != "active" {
+		return "", nil
+	}
+	return m.Role, nil
+}
+
 // FetchUser retrieves the authenticated GitHub user, resolving a primary email
 // when the profile email is private.
 func (g *GitHub) FetchUser(token string) (model.User, error) {

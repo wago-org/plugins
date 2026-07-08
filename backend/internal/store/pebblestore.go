@@ -659,6 +659,19 @@ func (s *PebbleStore) UpdateComment(id, body string) (model.Comment, error) {
 	return c, s.putJSON(recKey(kpComment, id), c)
 }
 
+// SetCommentArchived soft-hides or restores a comment.
+func (s *PebbleStore) SetCommentArchived(id string, archived bool) (model.Comment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.doc.Comments[id]
+	if !ok {
+		return model.Comment{}, errors.New("comment not found")
+	}
+	c.Archived = archived
+	s.doc.Comments[id] = c
+	return c, s.putJSON(recKey(kpComment, id), c)
+}
+
 func (s *PebbleStore) DeleteComment(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

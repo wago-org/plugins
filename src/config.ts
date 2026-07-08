@@ -32,4 +32,4 @@ function guessApiBase(): string {
 export const API_BASE = guessApiBase();
 
 // Path to the static package index, served alongside the site.
-export const PACKAGES_URL = "data/packages.json";
+export const PACKAGES_URL = "/data/packages.json";

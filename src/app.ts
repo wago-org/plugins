@@ -20,6 +20,7 @@ import {
 import { findPackage, state } from "./state.js";
 import type { AcctTab, PkgTab, Sort } from "./state.js";
 import type { ViewUser } from "./types.js";
+import { pkgPath } from "./util.js";
 
 const root = (): HTMLElement => document.getElementById("app")!;
 
@@ -51,24 +52,19 @@ function render(): void {
 
 // ── router ───────────────────────────────────────────────────────────────────
 
-function pushUrl(hash: string): void {
-    if (location.hash !== hash) history.pushState(null, "", hash || "#/");
+function pushUrl(path: string): void {
+    if (location.pathname + location.search !== path) history.pushState(null, "", path || "/");
 }
 
-// Rebuild screen-level state from the current URL hash (used on load and on
+// Rebuild screen-level state from the current URL path (used on load and on
 // browser back/forward). Ephemeral filters/tabs intentionally reset here.
 async function route(): Promise<void> {
-    const raw = location.hash.replace(/^#/, "") || "/";
-    const [path, queryStr] = raw.split("?");
-    const params = new URLSearchParams(queryStr || "");
-    const parts = path.split("/").filter(Boolean); // e.g. ["p","wasi-fs"]
+    const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    const params = new URLSearchParams(location.search);
 
-    if (parts[0] === "p" && parts[1]) {
-        await openPackage(decodeURIComponent(parts[1]), false);
-        return;
-    }
-    if (parts[0] === "u" && parts[1]) {
-        await openUser(decodeURIComponent(parts[1]), false);
+    if (parts.length === 0) {
+        state.screen = "home";
+        render();
         return;
     }
     if (parts[0] === "search") {
@@ -82,14 +78,28 @@ async function route(): Promise<void> {
         render();
         return;
     }
-    if (parts[0] === "account") {
-        state.screen = state.user ? "account" : "auth";
-        render();
-        if (state.user) void loadStars();
+    if (parts[0] === "account" || parts[0] === "settings") {
+        if (!state.user) {
+            state.screen = "auth";
+            render();
+            return;
+        }
+        const tab = (parts[0] === "settings" ? "settings" : (params.get("tab") as AcctTab)) || "profile";
+        showAccount(tab, false);
         return;
     }
-    state.screen = "home";
-    render();
+    // Two segments = a package: /{owner}/{short} (or legacy /p/{short}).
+    if (parts.length >= 2) {
+        await openPackage(parts[1], false);
+        return;
+    }
+    // Single segment = your own account (when it's your login), else a user/org.
+    const name = parts[0];
+    if (state.user && name.toLowerCase() === state.user.login.toLowerCase()) {
+        showAccount((params.get("tab") as AcctTab) || "profile", false);
+        return;
+    }
+    await openProfile(name, false);
 }
 
 // ── navigation helpers ───────────────────────────────────────────────────────
@@ -97,7 +107,7 @@ async function route(): Promise<void> {
 function navHome(): void {
     state.screen = "home";
     state.menuOpen = false;
-    pushUrl("#/");
+    pushUrl("/");
     render();
     scrollTop();
 }
@@ -105,7 +115,7 @@ function navHome(): void {
 function navAuth(): void {
     state.screen = "auth";
     state.authError = null;
-    pushUrl("#/auth");
+    pushUrl("/auth");
     render();
     scrollTop();
 }
@@ -113,12 +123,13 @@ function navAuth(): void {
 function navSearch(): void {
     state.screen = "search";
     const q = state.query.trim();
-    pushUrl(q ? `#/search?q=${encodeURIComponent(q)}` : "#/search");
+    pushUrl(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
     render();
     scrollTop();
 }
 
-function navAccount(tab: AcctTab): void {
+// Show the current user's account at /{login} (?tab= for non-profile tabs).
+function showAccount(tab: AcctTab, push: boolean): void {
     if (!state.user) {
         navAuth();
         return;
@@ -126,10 +137,17 @@ function navAccount(tab: AcctTab): void {
     state.screen = "account";
     state.acctTab = tab;
     state.menuOpen = false;
-    pushUrl("#/account");
+    if (push) {
+        const q = tab && tab !== "profile" ? `?tab=${tab}` : "";
+        pushUrl(`/${encodeURIComponent(state.user.login)}${q}`);
+    }
     render();
     scrollTop();
     void loadStars();
+}
+
+function navAccount(tab: AcctTab): void {
+    showAccount(tab, true);
 }
 
 // Load the current user's starred packages (used by the profile stat and the
@@ -180,7 +198,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.starred = !!pkg.starred;
     state.starCount = pkg.stars;
     state.bookmarked = api.isBookmarked(pkg.short);
-    if (push) pushUrl(`#/p/${encodeURIComponent(short)}`);
+    if (push) pushUrl(pkgPath(pkg));
     render();
     scrollTop();
     // …then enrich from the backend (or local store) when available.
@@ -211,7 +229,7 @@ function scrollTop(): void {
     }
 }
 
-// ── public user profiles (#/u/{login}) ───────────────────────────────────────
+// ── public user / org profiles (/{login}) ────────────────────────────────────
 
 // A display name for a login pulled from the registry (an author entry), else "".
 function registryDisplayName(login: string): string {
@@ -224,10 +242,11 @@ function registryDisplayName(login: string): string {
     return "";
 }
 
-// Open a user's wago profile. Shows a claimed member's profile when one exists,
-// otherwise a profile generated from the registry + GitHub public data. Both are
-// enriched with the real GitHub avatar/bio, fetched client-side and cached.
-async function openUser(login: string, push = true): Promise<void> {
+// Open a user or organization's wago profile. Shows a claimed member's profile
+// when one exists, otherwise one generated from registry + GitHub public data.
+// Enriched with the real GitHub avatar/bio and org memberships (user) or public
+// members (org), fetched client-side and cached.
+async function openProfile(login: string, push = true): Promise<void> {
     if (!login) return;
     state.screen = "user";
     state.menuOpen = false;
@@ -235,12 +254,13 @@ async function openUser(login: string, push = true): Promise<void> {
     // Seed synchronously so the header paints immediately with what we know.
     state.viewUser = { login, name: seedName, claimed: false };
     state.viewUserLoading = true;
-    if (push) pushUrl(`#/u/${encodeURIComponent(login)}`);
+    if (push) pushUrl(`/${encodeURIComponent(login)}`);
     render();
     scrollTop();
 
     const [claimed, gh] = await Promise.all([api.getPublicUser(login), github.fetchUser(login)]);
     if (state.viewUser?.login !== login) return; // navigated away meanwhile
+    const isOrg = !!gh?.isOrg;
 
     const merged: ViewUser = {
         login,
@@ -259,10 +279,19 @@ async function openUser(login: string, push = true): Promise<void> {
         publicRepos: claimed?.publicRepos,
         starsGiven: claimed?.starsGiven,
         claimed: !!claimed,
+        isOrg,
     };
     state.viewUser = merged;
     state.viewUserLoading = false;
     render();
+
+    // Lazily load org memberships (for a person) or public members (for an org).
+    void (isOrg ? github.fetchOrgMembers(login) : github.fetchOrgs(login)).then((accts) => {
+        if (state.viewUser?.login !== login) return;
+        if (isOrg) state.viewUser.members = accts;
+        else state.viewUser.orgs = accts;
+        render();
+    });
 }
 
 // ── reviews ──────────────────────────────────────────────────────────────────
@@ -646,6 +675,19 @@ async function removeComment(id: string): Promise<void> {
     await refreshComments();
 }
 
+// Hide (archived=true) or restore a comment. Allowed for the author or a
+// moderator (package/org owner); the server enforces the actual permission.
+async function setCommentArchived(id: string, archived: boolean): Promise<void> {
+    if (!state.user || !state.pkg) {
+        if (!state.user) navAuth();
+        return;
+    }
+    const c = state.comments.find((x) => x.id === id);
+    if (!c || !(c.mine || c.canModerate)) return;
+    await api.archiveComment(state.pkg, id, archived);
+    await refreshComments();
+}
+
 function editCommentOpen(id: string): void {
     const c = state.comments.find((x) => x.id === id);
     if (!c || !c.mine) return;
@@ -760,7 +802,7 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             if (arg) void openPackage(arg);
             break;
         case "user":
-            if (arg) void openUser(arg);
+            if (arg) void openProfile(arg);
             break;
         case "search":
             navSearch();
@@ -923,6 +965,12 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
         case "comment-delete":
             if (arg) void removeComment(arg);
             break;
+        case "comment-archive":
+            if (arg) void setCommentArchived(arg, true);
+            break;
+        case "comment-unarchive":
+            if (arg) void setCommentArchived(arg, false);
+            break;
         case "comment-edit-open":
             if (arg) editCommentOpen(arg);
             break;
@@ -995,7 +1043,19 @@ function wireEvents(): void {
             return;
         }
         const actEl = target.closest<HTMLElement>("[data-act]");
-        if (!actEl) return;
+        if (!actEl) {
+            // Internal path links without a data-act (e.g. @mention links inside
+            // rendered markdown) — route them in-app instead of a full reload.
+            const a = target.closest<HTMLAnchorElement>("a[href^='/']");
+            if (a && !a.hasAttribute("target") && !e.metaKey && !e.ctrlKey && e.button === 0) {
+                e.preventDefault();
+                const dest = a.getAttribute("href") || "/";
+                history.pushState(null, "", dest);
+                void route();
+                scrollTop();
+            }
+            return;
+        }
         const act = actEl.getAttribute("data-act")!;
         // Anchors/labels that we handle in JS shouldn't also navigate natively.
         if (actEl.tagName === "A" || actEl.tagName === "LABEL") e.preventDefault();
@@ -1052,14 +1112,27 @@ function wireEvents(): void {
     });
 
     window.addEventListener("popstate", () => void route());
-    // Bare in-app hash links (e.g. @mention → #/u/login inside rendered markdown)
-    // change the hash without pushState, so route on hashchange too.
-    window.addEventListener("hashchange", () => void route());
+}
+
+// Translate legacy hash URLs (#/p/x, #/u/x, #/account, …) to the new path form,
+// rewriting the address bar in place so old links keep working.
+function migrateLegacyHash(): void {
+    if (!location.hash.startsWith("#/")) return;
+    const [h, q] = location.hash.slice(1).split("?");
+    const parts = h.split("/").filter(Boolean);
+    let path = "/";
+    if (parts[0] === "p" && parts[1]) path = `/packages/${parts[1]}`;
+    else if (parts[0] === "u" && parts[1]) path = `/${parts[1]}`;
+    else if (parts[0] === "search") path = "/search";
+    else if (parts[0] === "auth") path = "/auth";
+    else if (parts[0] === "account") path = "/account";
+    history.replaceState(null, "", path + (q ? `?${q}` : ""));
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────
 
 export async function init(): Promise<void> {
+    migrateLegacyHash();
     render(); // "Loading registry…"
     wireEvents();
     // Load the markdown renderer up front; re-render once ready so any already

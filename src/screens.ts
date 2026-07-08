@@ -14,7 +14,7 @@ import type {
     UserEmail,
     VersionRow,
 } from "./types.js";
-import { compactNum, esc, escAttr, fullDate, relativeDate, shortHash, sparkline, starStr, tier } from "./util.js";
+import { compactNum, esc, escAttr, fullDate, pkgPath, relativeDate, shortHash, sparkline, starStr, tier } from "./util.js";
 import { mdBlock } from "./markdown.js";
 import { avatarFor } from "./github.js";
 
@@ -135,7 +135,7 @@ export function nav(s: AppState): string {
     const right = s.user ? profileMenu(s) : signInButton();
     return `
 <nav style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:20px;padding:14px 0;background:rgba(26,21,71,0.9);backdrop-filter:blur(12px);border-bottom:1px solid ${C.line}">
-  <a href="#/" data-act="home" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0">
+  <a href="/" data-act="home" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0">
     <img src="/assets/wago-logo.png" alt="wago" style="width:34px;height:34px;border-radius:9px;flex-shrink:0" />
     <span style="font-weight:800;font-size:20px;letter-spacing:-0.5px">wago</span>
     <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.lilac};border:1px solid ${C.line2};padding:3px 10px;border-radius:100px;margin-left:2px">packages</span>
@@ -146,7 +146,7 @@ export function nav(s: AppState): string {
     <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.muted};border:1px solid ${C.line};padding:2px 7px;border-radius:5px">↵</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
-    <a href="#/" data-act="home" style="text-decoration:none;font-size:14px;font-weight:600;color:${homeColor}">Browse</a>
+    <a href="/" data-act="home" style="text-decoration:none;font-size:14px;font-weight:600;color:${homeColor}">Browse</a>
     <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none;padding:9px 16px;border-radius:9px;background:${C.lilac};color:${C.bg};font-weight:700;font-size:14px">Publish ↗</a>
     ${right}
   </div>
@@ -154,7 +154,7 @@ export function nav(s: AppState): string {
 }
 
 function signInButton(): string {
-    return `<a href="#/auth" data-act="auth" style="text-decoration:none;padding:8px 15px;border-radius:9px;border:1px solid ${C.line2};color:${C.text};font-weight:600;font-size:14px">Sign in</a>`;
+    return `<a href="/auth" data-act="auth" style="text-decoration:none;padding:8px 15px;border-radius:9px;border:1px solid ${C.line2};color:${C.text};font-weight:600;font-size:14px">Sign in</a>`;
 }
 
 function avatarSpan(
@@ -229,7 +229,7 @@ function profileMenu(s: AppState): string {
       </div>
       ${menuItems}
       <div style="height:1px;background:${C.line};margin:6px 4px"></div>
-      <a href="#/" data-act="signout" style="display:flex;align-items:center;gap:11px;text-decoration:none;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:600;color:${C.pink}">
+      <a href="/" data-act="signout" style="display:flex;align-items:center;gap:11px;text-decoration:none;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:600;color:${C.pink}">
         <span style="width:18px;text-align:center">⇥</span> Sign out
       </a>
     </div>`
@@ -256,7 +256,7 @@ export function footer(s: AppState): string {
     </div>
     <div style="display:flex;gap:22px;font-size:14px;font-weight:600;color:${C.lilac}">
       <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none">GitHub</a>
-      <a href="#/" data-act="home" style="text-decoration:none">Browse</a>
+      <a href="/" data-act="home" style="text-decoration:none">Browse</a>
     </div>
   </div>
 </footer>`;
@@ -322,7 +322,7 @@ export function homeScreen(s: AppState): string {
   <section style="margin-bottom:52px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
       <h2 style="font-weight:800;font-size:24px;letter-spacing:-0.6px;margin:0">Featured packages</h2>
-      <a href="#/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.lilac}">browse all →</a>
+      <a href="/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.lilac}">browse all →</a>
     </div>
     <div style="display:flex;align-items:center;gap:16px;margin:-6px 0 16px;font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};flex-wrap:wrap">
       <span>star colour = popularity:</span>
@@ -343,7 +343,7 @@ export function homeScreen(s: AppState): string {
 function featuredCard(p: Package): string {
     const verified = p.verified ? `<span title="verified" style="color:${C.green};font-size:13px">✦</span>` : "";
     return `
-        <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:flex;flex-direction:column;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:20px 22px">
+        <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:flex;flex-direction:column;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:20px 22px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
             <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15.5px;color:${C.text}">${esc(p.short)}</span>
             ${verified}
@@ -365,7 +365,7 @@ function featuredCard(p: Package): string {
 function recentRow(p: Package): string {
     const verified = p.verified ? `<span style="color:${C.green};font-size:12px">✦</span>` : "";
     return `
-        <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px 22px;background:${C.panel};border-top:1px solid ${C.line}">
+        <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px 22px;background:${C.panel};border-top:1px solid ${C.line}">
           <div style="min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
               <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.text}">${esc(p.short)}</span>
@@ -450,7 +450,7 @@ function searchRow(p: Package): string {
         ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${C.bg};background:${C.green};padding:2px 8px;border-radius:100px">✦ verified</span>`
         : "";
     return `
-        <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:block;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:20px 22px">
+        <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:block;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:20px 22px">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;flex-wrap:wrap">
             <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:${C.lilac}">${esc(p.short)}</span>
             ${verified}
@@ -514,7 +514,7 @@ export function packageScreen(s: AppState): string {
 
     return `
 <div style="padding:28px 0 72px">
-  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="#/" data-act="home" style="text-decoration:none;color:${C.muted}">packages</a> <span style="color:${C.line2}">/</span> <a href="#/search" data-act="cat" data-arg="${escAttr(p.category)}" style="text-decoration:none;color:${C.muted}">${esc(p.category)}</a> <span style="color:${C.line2}">/</span> <span style="color:${C.lilac}">${esc(p.short)}</span></div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">packages</a> <span style="color:${C.line2}">/</span> <a href="/search" data-act="cat" data-arg="${escAttr(p.category)}" style="text-decoration:none;color:${C.muted}">${esc(p.category)}</a> <span style="color:${C.line2}">/</span> <span style="color:${C.lilac}">${esc(p.short)}</span></div>
 
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
     <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.name)}</h1>
@@ -523,7 +523,7 @@ export function packageScreen(s: AppState): string {
   </div>
   <p style="font-size:17px;line-height:1.6;color:${C.soft};margin:0 0 14px;max-width:680px">${esc(p.description)}</p>
   <div style="display:flex;align-items:center;gap:18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin:0 0 28px;flex-wrap:wrap">
-    <a href="#/p/${escAttr(p.short)}" data-act="tab" data-arg="reviews" style="text-decoration:none;display:inline-flex;align-items:center;gap:7px"><span style="font-size:14px;letter-spacing:1px;color:${tier(p.score)}">${starStr(p.rating)}</span><span style="color:${C.dim}">${p.rating}</span><span>${p.ratingCount} ratings</span></a>
+    <a href="${pkgPath(p)}" data-act="tab" data-arg="reviews" style="text-decoration:none;display:inline-flex;align-items:center;gap:7px"><span style="font-size:14px;letter-spacing:1px;color:${tier(p.score)}">${starStr(p.rating)}</span><span style="color:${C.dim}">${p.rating}</span><span>${p.ratingCount} ratings</span></a>
     <span>${p.subpackages.length} subpackage${p.subpackages.length === 1 ? "" : "s"}</span>
     <span>${p.license || "—"}</span>
   </div>
@@ -669,7 +669,7 @@ function signInPrompt(what: string): string {
     return `
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:14px 20px;margin-bottom:24px;flex-wrap:wrap">
     <span style="font-size:13.5px;color:${C.soft}">Sign in with GitHub to ${esc(what)}.</span>
-    <a href="#/auth" data-act="auth" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.lilac};background:transparent;border:1px solid ${C.line2};padding:8px 15px;border-radius:9px;white-space:nowrap">Sign in</a>
+    <a href="/auth" data-act="auth" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.lilac};background:transparent;border:1px solid ${C.line2};padding:8px 15px;border-radius:9px;white-space:nowrap">Sign in</a>
   </div>`;
 }
 
@@ -765,11 +765,17 @@ function commentsTab(s: AppState): string {
     return `<div>${composer}<div style="display:flex;flex-direction:column;gap:12px">${list}</div></div>`;
 }
 
+// A hidden (archived) comment is only visible to its author or a moderator; to
+// everyone else it's filtered out of the thread entirely.
+function commentVisible(c: Comment): boolean {
+    return !c.archived || !!c.mine || !!c.canModerate;
+}
+
 function commentThread(s: AppState): string {
-    const tops = s.comments.filter((c) => !c.parentId);
+    const tops = s.comments.filter((c) => !c.parentId && commentVisible(c));
     return tops
         .map((c) => {
-            const replies = s.comments.filter((r) => r.parentId === c.id);
+            const replies = s.comments.filter((r) => r.parentId === c.id && commentVisible(r));
             return commentCard(s, c, replies);
         })
         .join("");
@@ -813,12 +819,26 @@ function commentBody(s: AppState, c: Comment): string {
     const votes = `
         <button data-act="comment-vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${upOn ? C.bg : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▲ ${c.score ?? 0}</button>
         <button data-act="comment-vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${downOn ? C.bg : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▼</button>`;
+    // "hide" soft-archives a comment; the author or a moderator (package/org
+    // owner) may do it. Moderators who aren't the author see it as a moderation
+    // action; restoring is "unhide".
+    const canHide = c.mine || c.canModerate;
+    const linkBtn = (act: string, label: string, color: string): string =>
+        `<button data-act="${act}" data-arg="${id}" style="background:none;border:none;color:${color};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">${label}</button>`;
+    const hideBtn = c.archived
+        ? canHide
+            ? linkBtn("comment-unarchive", "unhide", C.lilac)
+            : ""
+        : canHide
+          ? linkBtn("comment-archive", c.mine ? "hide" : "hide (moderator)", C.pink)
+          : "";
     const actions = `
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px">
         ${votes}
         ${s.user && !c.parentId ? `<button data-act="reply-open" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.lilac};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">reply</button>` : ""}
         ${c.mine ? `<button data-act="comment-edit-open" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.lilac};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">edit</button>` : ""}
         ${c.mine ? `<button data-act="comment-delete" data-arg="${escAttr(c.id)}" style="background:none;border:none;color:${C.pink};cursor:pointer;font-family:inherit;font-size:inherit;padding:0">delete</button>` : ""}
+        ${hideBtn}
       </div>`;
     const header = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
@@ -837,6 +857,14 @@ function commentBody(s: AppState, c: Comment): string {
           <button data-act="comment-edit-cancel" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:7px 14px;border-radius:8px;cursor:pointer">Cancel</button>
           <button data-act="comment-edit-save" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Save</button>
         </div>`;
+    }
+    if (c.archived) {
+        const note = `<div style="display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:${C.muted};background:${C.deep};border:1px solid ${C.line2};padding:2px 9px;border-radius:100px;margin-bottom:8px">⊘ hidden${c.mine ? "" : " by a moderator"}</div>`;
+        return `
+        ${header}
+        ${note}
+        <div style="opacity:0.5">${mdBlock(c.body)}</div>
+        ${actions}`;
     }
     return `
         ${header}
@@ -1097,9 +1125,20 @@ function pkgSidebar(s: AppState): string {
     </aside>`;
 }
 
+// A small pill linking to another account's wago profile (org membership or
+// org member), showing its avatar + login.
+function accountChip(login: string, avatarUrl?: string): string {
+    const initial = (login || "?").trim()[0]?.toUpperCase() || "?";
+    const av = avatarSpan(login, initial, avatarBgFor(login), avatarUrl, 24, 10);
+    return profileLinkWrap(
+        login,
+        `<span style="display:inline-flex;align-items:center;gap:9px;background:${C.panel};border:1px solid ${C.line};border-radius:100px;padding:5px 15px 5px 6px">${av}<span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.text}">${esc(login)}</span></span>`,
+    );
+}
+
 // Wrap an avatar (or any inline content) in a link to a user's wago profile.
 function profileLinkWrap(login: string, inner: string): string {
-    return `<a href="#/u/${escAttr(login)}" data-act="user" data-arg="${escAttr(login)}" title="@${escAttr(login)}" style="text-decoration:none;cursor:pointer">${inner}</a>`;
+    return `<a href="/${escAttr(login)}" data-act="user" data-arg="${escAttr(login)}" title="@${escAttr(login)}" style="text-decoration:none;cursor:pointer">${inner}</a>`;
 }
 
 function avatarBgFor(seed: string): string {
@@ -1136,7 +1175,7 @@ export function authScreen(s: AppState): string {
     </div>
     <p style="font-size:11.5px;line-height:1.55;color:${C.faint};text-align:center;margin:18px 0 0">By continuing you agree to the Terms of Service and Privacy Policy.</p>
     <div style="text-align:center;margin-top:14px">
-      <a href="#/" data-act="home" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted}">← back to browse</a>
+      <a href="/" data-act="home" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted}">← back to browse</a>
     </div>
   </div>
 </div>`;
@@ -1212,7 +1251,7 @@ function acctProfile(s: AppState): string {
             .map((p, i) => {
                 const rs = ROLE_STYLE[p.role];
                 return `
-            <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
@@ -1275,7 +1314,7 @@ function acctPlugins(s: AppState): string {
             <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:18px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;flex-wrap:wrap">
-                  <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.lilac}">${esc(p.short)}</a>
+                  <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.lilac}">${esc(p.short)}</a>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${rs.color};background:${rs.bg};border:1px solid ${rs.border};padding:2px 8px;border-radius:100px">${p.role}</span>
                 </div>
@@ -1310,12 +1349,12 @@ function acctStars(s: AppState): string {
     if (shorts === null) {
         body = `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel}">Loading your stars…</div>`;
     } else if (starred.length === 0) {
-        body = `<div style="padding:26px;color:${C.muted};font-size:14px;background:${C.panel};text-align:center">You haven't starred any packages yet. Browse the registry and hit ★ on ones you like.<div style="margin-top:12px"><a href="#/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.lilac};border:1px solid ${C.line2};padding:8px 15px;border-radius:9px">Browse packages →</a></div></div>`;
+        body = `<div style="padding:26px;color:${C.muted};font-size:14px;background:${C.panel};text-align:center">You haven't starred any packages yet. Browse the registry and hit ★ on ones you like.<div style="margin-top:12px"><a href="/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.lilac};border:1px solid ${C.line2};padding:8px 15px;border-radius:9px">Browse packages →</a></div></div>`;
     } else {
         const list = starred
             .map(
                 (p, i) => `
-            <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
@@ -1339,7 +1378,7 @@ function acctStars(s: AppState): string {
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
           <h1 style="font-weight:800;font-size:24px;letter-spacing:-0.6px;margin:0">Your stars${count}</h1>
-          <a href="#/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.lilac}">browse all →</a>
+          <a href="/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${C.lilac}">browse all →</a>
         </div>
         ${body}
       </div>`;
@@ -1405,7 +1444,7 @@ export function userScreen(s: AppState): string {
             .map((p, i) => {
                 const rs = ROLE_STYLE[p.role] || ROLE_STYLE.maintainer;
                 return `
-            <a href="#/p/${escAttr(p.short)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
@@ -1420,6 +1459,24 @@ export function userScreen(s: AppState): string {
             .join("") ||
         `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel}">No packages found for this user in the registry.</div>`;
 
+    // Organizations to surface: for a person, their GitHub orgs that own a wago
+    // package (the "attached to a wago package" rule); for an org profile, its
+    // public members. Both link to the account's wago profile.
+    const orgPackageOwners = new Set(
+        (s.registry?.packages || []).map((p) => (p.ownerLogin || "").toLowerCase()).filter(Boolean),
+    );
+    const accounts = vu.isOrg
+        ? vu.members || []
+        : (vu.orgs || []).filter((o) => orgPackageOwners.has(o.login.toLowerCase()));
+    const accountsSection =
+        accounts.length > 0
+            ? `
+  <h2 style="font-weight:800;font-size:20px;letter-spacing:-0.5px;margin:0 0 14px">${vu.isOrg ? "Members" : "Organizations"}</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px">
+    ${accounts.map((o) => accountChip(o.login, o.avatarUrl)).join("")}
+  </div>`
+            : "";
+
     const loadingHint = s.viewUserLoading
         ? `<div style="font-size:12px;color:${C.muted};margin-top:8px">Loading profile…</div>`
         : "";
@@ -1429,7 +1486,7 @@ export function userScreen(s: AppState): string {
 
     return `
 <div style="padding:32px 0 72px">
-  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="#/" data-act="home" style="text-decoration:none;color:${C.muted}">packages</a> <span style="color:${C.line2}">/</span> <span style="color:${C.lilac}">@${esc(login)}</span></div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">packages</a> <span style="color:${C.line2}">/</span> <span style="color:${C.lilac}">@${esc(login)}</span></div>
   ${unclaimedNote}
   <div style="display:flex;align-items:flex-start;gap:20px;background:${C.panel};border:1px solid ${C.line};border-radius:18px;padding:26px;margin-bottom:18px;flex-wrap:wrap">
     ${avatarSpan(vu.name, initial, avatarBgFor(login), vu.avatarUrl, 76, 30)}
@@ -1451,6 +1508,7 @@ export function userScreen(s: AppState): string {
     ${statCard(compactNum(totalInstalls), "installs / week", C.pink)}
   </div>
 
+  ${accountsSection}
   <h2 style="font-weight:800;font-size:20px;letter-spacing:-0.5px;margin:0 0 14px">Packages</h2>
   <div style="border:1px solid ${C.line};border-radius:14px;overflow:hidden">${rows}</div>
 </div>`;

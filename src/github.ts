@@ -162,6 +162,7 @@ export interface GhUser {
     name: string;
     avatarUrl: string;
     bio: string;
+    isOrg: boolean;
 }
 
 interface GhUserRaw {
@@ -169,6 +170,12 @@ interface GhUserRaw {
     name: string | null;
     avatar_url: string;
     bio: string | null;
+    type?: string; // "User" | "Organization"
+}
+
+export interface GhAccountRef {
+    login: string;
+    avatarUrl: string;
 }
 
 // avatarFor returns a cached avatar_url for a login synchronously if we have
@@ -193,6 +200,7 @@ export async function fetchUser(login: string): Promise<GhUser | null> {
             name: raw.name || raw.login,
             avatarUrl: raw.avatar_url,
             bio: raw.bio || "",
+            isOrg: raw.type === "Organization",
         };
         cacheSet(key, user);
         return user;
@@ -218,6 +226,54 @@ export function ensureAvatars(logins: string[], onLoaded: () => void): void {
             pending--;
             if (pending === 0 && any) onLoaded();
         });
+    }
+}
+
+// --- Organizations ---
+
+interface GhOrgRef {
+    login: string;
+    avatar_url: string;
+}
+
+// fetchOrgs returns a user's public organization memberships (login + avatar),
+// cached. Empty on any failure.
+export async function fetchOrgs(login: string): Promise<GhAccountRef[]> {
+    const key = `orgs.${login.toLowerCase()}`;
+    const cached = cacheGet<GhAccountRef[]>(key);
+    if (cached) return cached;
+    if (inFlight.has(key)) return (await inFlight.get(key)) as GhAccountRef[];
+    const p = (async (): Promise<GhAccountRef[]> => {
+        const raw = await ghFetch<GhOrgRef[]>(`/users/${login}/orgs`);
+        const orgs = (raw || []).map((o) => ({ login: o.login, avatarUrl: o.avatar_url }));
+        cacheSet(key, orgs);
+        return orgs;
+    })();
+    inFlight.set(key, p);
+    try {
+        return await p;
+    } finally {
+        inFlight.delete(key);
+    }
+}
+
+// fetchOrgMembers returns an org's public members (login + avatar), cached.
+export async function fetchOrgMembers(org: string): Promise<GhAccountRef[]> {
+    const key = `members.${org.toLowerCase()}`;
+    const cached = cacheGet<GhAccountRef[]>(key);
+    if (cached) return cached;
+    if (inFlight.has(key)) return (await inFlight.get(key)) as GhAccountRef[];
+    const p = (async (): Promise<GhAccountRef[]> => {
+        const raw = await ghFetch<GhOrgRef[]>(`/orgs/${org}/public_members?per_page=30`);
+        const members = (raw || []).map((m) => ({ login: m.login, avatarUrl: m.avatar_url }));
+        cacheSet(key, members);
+        return members;
+    })();
+    inFlight.set(key, p);
+    try {
+        return await p;
+    } finally {
+        inFlight.delete(key);
     }
 }
 
