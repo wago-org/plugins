@@ -216,7 +216,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.pkgTab = "readme";
     state.sub = null;
     state.readme = null;
-    state.readmeLoading = !!github.parseRepo(pkg.repository);
+    state.readmeLoading = true; // settled by enrichReadme (stored readme, GitHub fetch, or neither)
     state.composerOpen = false;
     state.draftRating = 0;
     state.hoverRating = 0;
@@ -409,16 +409,24 @@ function enrichAvatars(): void {
 function enrichReadme(): void {
     const p = state.pkg;
     if (!p) return;
+    const settle = () => {
+        state.readmeLoading = false;
+        if (state.screen === "package") render();
+    };
+    // A README stored at publish (e.g. a private repo) wins — no GitHub fetch.
+    if (p.readme) {
+        settle();
+        return;
+    }
     const repo = github.parseRepo(p.repository);
     if (!repo) {
-        state.readmeLoading = false;
+        settle();
         return;
     }
     void github.fetchReadme(repo.owner, repo.repo).then((md) => {
         if (state.pkg !== p) return;
         state.readme = md;
-        state.readmeLoading = false;
-        if (state.screen === "package") render();
+        settle();
     });
 }
 
