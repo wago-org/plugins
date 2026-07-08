@@ -333,3 +333,61 @@ button {
     font-weight: 600;
     color: var(--text);
 }
+
+/* highlight.js token theme — dark, matched to the palette. Scoped to READMEs. */
+.readme .md code.hljs {
+    color: #e7e0ff;
+}
+.readme .md .hljs-comment,
+.readme .md .hljs-quote {
+    color: var(--muted);
+    font-style: italic;
+}
+.readme .md .hljs-keyword,
+.readme .md .hljs-selector-tag,
+.readme .md .hljs-literal,
+.readme .md .hljs-doctag,
+.readme .md .hljs-meta .hljs-keyword {
+    color: var(--pink);
+}
+.readme .md .hljs-string,
+.readme .md .hljs-regexp,
+.readme .md .hljs-addition {
+    color: var(--green);
+}
+.readme .md .hljs-number,
+.readme .md .hljs-symbol,
+.readme .md .hljs-attr,
+.readme .md .hljs-attribute,
+.readme .md .hljs-variable,
+.readme .md .hljs-template-variable,
+.readme .md .hljs-selector-attr {
+    color: #f0b072;
+}
+.readme .md .hljs-title,
+.readme .md .hljs-title.function_,
+.readme .md .hljs-section,
+.readme .md .hljs-name,
+.readme .md .hljs-selector-id,
+.readme .md .hljs-selector-class {
+    color: var(--lilac);
+}
+.readme .md .hljs-built_in,
+.readme .md .hljs-type,
+.readme .md .hljs-class .hljs-title,
+.readme .md .hljs-title.class_ {
+    color: #8ec9ff;
+}
+.readme .md .hljs-meta,
+.readme .md .hljs-punctuation {
+    color: var(--muted);
+}
+.readme .md .hljs-deletion {
+    color: var(--pink);
+}
+.readme .md .hljs-emphasis {
+    font-style: italic;
+}
+.readme .md .hljs-strong {
+    font-weight: 700;
+}
