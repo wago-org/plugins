@@ -1145,7 +1145,7 @@ function pkgSidebar(s: AppState): string {
             ),
         )
         .join("");
-    const weekLabel = compactNum(s.installSeries.slice(-7).reduce((a, b) => a + b.count, 0) || p.installsWeek);
+    const monthLabel = compactNum(s.installSeries.slice(-30).reduce((a, b) => a + b.count, 0) || p.installsWeek);
 
     return `
     <aside style="display:flex;flex-direction:column;gap:0;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:4px 22px 22px">
@@ -1158,8 +1158,8 @@ function pkgSidebar(s: AppState): string {
       </div>
       <div style="padding:15px 0;border-top:1px solid ${C.line}">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase">Weekly installs</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.lilac}">${esc(weekLabel)}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase">Monthly installs</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.lilac}">${esc(monthLabel)}</div>
         </div>
         <div style="height:44px;display:flex;align-items:center">
           ${
@@ -1168,7 +1168,6 @@ function pkgSidebar(s: AppState): string {
             <defs><linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.lilac}" stop-opacity="0.35"></stop><stop offset="1" stop-color="${C.lilac}" stop-opacity="0"></stop></linearGradient></defs>
             <path d="${spark.area}" fill="url(#sparkfill)"></path>
             <polyline points="${spark.points}" fill="none" stroke="${C.lilac}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
-            <circle cx="${spark.endX}" cy="${spark.endY}" r="2.6" fill="${C.green}"></circle>
           </svg>`
                   : `<span style="font-size:12px;color:${C.muted}">No install history yet.</span>`
           }
