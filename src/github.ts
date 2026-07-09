@@ -305,6 +305,31 @@ interface GhOrgRef {
     avatar_url: string;
 }
 
+// fetchContributors returns a repo's GitHub contributors (login + avatar), most
+// commits first, bots filtered out. Cached; empty on any failure.
+export async function fetchContributors(owner: string, repo: string): Promise<GhAccountRef[]> {
+    const key = `contributors.${owner}/${repo}`.toLowerCase();
+    const cached = cacheGet<GhAccountRef[]>(key);
+    if (cached) return cached;
+    if (inFlight.has(key)) return (await inFlight.get(key)) as GhAccountRef[];
+    const p = (async (): Promise<GhAccountRef[]> => {
+        const raw = await ghFetch<{ login: string; avatar_url: string; type?: string }[]>(
+            `/repos/${owner}/${repo}/contributors?per_page=20`,
+        );
+        const out = (raw || [])
+            .filter((c) => c.login && c.type !== "Bot" && !c.login.endsWith("[bot]"))
+            .map((c) => ({ login: c.login, avatarUrl: c.avatar_url }));
+        cacheSet(key, out);
+        return out;
+    })();
+    inFlight.set(key, p);
+    try {
+        return await p;
+    } finally {
+        inFlight.delete(key);
+    }
+}
+
 // fetchOrgs returns a user's public organization memberships (login + avatar),
 // cached. Empty on any failure.
 export async function fetchOrgs(login: string): Promise<GhAccountRef[]> {

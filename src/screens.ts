@@ -1146,11 +1146,17 @@ function pkgSidebar(s: AppState): string {
             return a.github ? profileLinkWrap(a.github, av) : av;
         })
         .join("");
-    const contributors = (p.contributors || [])
-        .map((login) =>
+    // Real GitHub repo contributors (with their avatars) when loaded; otherwise
+    // fall back to the wago publishers list.
+    const contribSrc: { login: string; avatarUrl?: string }[] =
+        s.ghContributors && s.ghContributors.length
+            ? s.ghContributors
+            : (p.contributors || []).map((login) => ({ login }));
+    const contributors = contribSrc
+        .map((c) =>
             profileLinkWrap(
-                login,
-                ghAvatarSpan(login, login, login[0].toUpperCase(), avatarBgFor(login), undefined, 30, 11),
+                c.login,
+                ghAvatarSpan(c.login, c.login, c.login[0].toUpperCase(), avatarBgFor(c.login), c.avatarUrl, 30, 11),
             ),
         )
         .join("");

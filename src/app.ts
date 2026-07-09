@@ -304,6 +304,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.pkgTab = "readme";
     state.sub = null;
     state.readme = null;
+    state.ghContributors = null;
     state.readmeBase = null;
     state.readmeLoading = true; // settled by enrichReadme (stored readme, GitHub fetch, or neither)
     state.composerOpen = false;
@@ -346,6 +347,7 @@ async function openPackage(short: string, push = true): Promise<void> {
     enrichAvatars(); // author/contributor profile pics
     enrichGithubStars(); // real GitHub stargazer count
     enrichReadme(); // the repo's real README from GitHub
+    enrichContributors(); // real repo contributors from GitHub
     // install history for the sidebar sparkline, and comments for the tab count.
     void api.loadInstalls(detail).then((r) => {
         if (state.pkg === detail) {
@@ -518,6 +520,20 @@ function enrichReadme(): void {
         if (state.pkg !== p) return;
         state.readme = md;
         settle();
+    });
+}
+
+// enrichContributors loads the repo's real GitHub contributors (replacing the
+// "who published on wago" list when available).
+function enrichContributors(): void {
+    const p = state.pkg;
+    if (!p) return;
+    const repo = github.parseRepo(p.repository) || github.parseRepo(p.name);
+    if (!repo) return;
+    void github.fetchContributors(repo.owner, repo.repo).then((list) => {
+        if (state.pkg !== p || !list.length) return;
+        state.ghContributors = list;
+        if (state.screen === "package") render();
     });
 }
 

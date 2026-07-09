@@ -59,6 +59,7 @@ export interface AppState {
     deprecateDraft: string;
 
     // GitHub issue sync (client-side fetch)
+    ghContributors: { login: string; avatarUrl: string }[] | null; // real repo contributors from GitHub (null = not loaded)
     ghIssues: Issue[] | null; // null = not synced; [] = synced but empty
     ghIssuesLoading: boolean;
     ghIssuesError: boolean; // couldn't reach GitHub / rate-limited
@@ -137,6 +138,7 @@ export const state: AppState = {
     publisherResults: [],
     deprecateDraft: "",
 
+    ghContributors: null,
     ghIssues: null,
     ghIssuesLoading: false,
     ghIssuesError: false,
