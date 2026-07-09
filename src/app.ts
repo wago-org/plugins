@@ -49,6 +49,28 @@ function screenBody(): string {
 
 function render(): void {
     root().innerHTML = nav(state) + screenBody() + footer(state);
+    enhanceCodeBlocks();
+}
+
+// enhanceCodeBlocks adds a GitHub-style copy button to the top-right of every
+// rendered code block. The button is injected by trusted JS (not baked into the
+// sanitized markdown), and reuses the [data-copy] click delegation + copyFrom.
+function enhanceCodeBlocks(): void {
+    root()
+        .querySelectorAll<HTMLElement>(".md pre")
+        .forEach((pre) => {
+            if (pre.querySelector(".code-copy")) return; // already enhanced
+            const code = pre.querySelector("code");
+            const text = code?.textContent ?? pre.textContent ?? "";
+            if (!text.trim()) return;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "code-copy";
+            btn.title = "Copy code";
+            btn.setAttribute("data-copy", text);
+            btn.innerHTML = `<span data-copy-label>Copy</span>`;
+            pre.appendChild(btn);
+        });
 }
 
 // ── router ───────────────────────────────────────────────────────────────────

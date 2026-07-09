@@ -153,12 +153,42 @@ button {
     padding: 1px 5px;
 }
 .md pre {
+    position: relative;
     background: var(--bg-deep);
     border: 1px solid var(--line);
     border-radius: 10px;
     padding: 12px 14px;
     overflow-x: auto;
     margin: 0 0 10px;
+}
+
+/* Copy button, injected top-right of every code block (see enhanceCodeBlocks). */
+.md pre .code-copy {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--dim);
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    border-radius: 7px;
+    padding: 4px 9px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition:
+        opacity 0.12s ease,
+        color 0.12s ease;
+}
+.md pre:hover .code-copy,
+.md pre .code-copy:focus {
+    opacity: 1;
+}
+.md pre .code-copy:hover {
+    color: var(--lilac);
+    border-color: var(--lilac);
 }
 .md pre code {
     background: none;
