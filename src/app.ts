@@ -50,6 +50,71 @@ function screenBody(): string {
 function render(): void {
     root().innerHTML = nav(state) + screenBody() + footer(state);
     enhanceCodeBlocks();
+    enhanceSparkline();
+}
+
+interface SparkPt {
+    x: number;
+    y: number;
+    c: number;
+    d: string;
+}
+
+// enhanceSparkline adds an npm-style hover readout to the monthly-installs chart:
+// a guide line + dot follow the cursor to the nearest day, and a tooltip shows
+// that day's install count and date. Per-point data is embedded in the chart's
+// data-spark attribute (viewBox coords + raw count/date).
+function enhanceSparkline(): void {
+    const wrap = root().querySelector<HTMLElement>(".spark-wrap");
+    if (!wrap || wrap.dataset.enh === "1") return;
+    let pts: SparkPt[];
+    try {
+        pts = JSON.parse(wrap.dataset.spark || "[]") as SparkPt[];
+    } catch {
+        return;
+    }
+    if (!pts.length) return;
+    wrap.dataset.enh = "1";
+
+    const line = document.createElement("div");
+    Object.assign(line.style, { position: "absolute", top: "0", bottom: "0", width: "1px", background: "#443a8c", pointerEvents: "none", display: "none", transform: "translateX(-0.5px)" });
+    const dot = document.createElement("div");
+    Object.assign(dot.style, { position: "absolute", width: "8px", height: "8px", borderRadius: "50%", background: "#c3a8ff", border: "2px solid #221c52", pointerEvents: "none", display: "none", transform: "translate(-50%,-50%)" });
+    const tip = document.createElement("div");
+    Object.assign(tip.style, { position: "absolute", top: "-2px", transform: "translate(-50%,-100%)", background: "#25205a", border: "1px solid #443a8c", borderRadius: "7px", padding: "3px 8px", fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", fontWeight: "700", color: "#f3effd", whiteSpace: "nowrap", pointerEvents: "none", display: "none", zIndex: "5", boxShadow: "0 8px 20px -8px rgba(0,0,0,.6)" });
+    wrap.append(line, dot, tip);
+
+    wrap.addEventListener("mousemove", (e) => {
+        const r = wrap.getBoundingClientRect();
+        if (!r.width) return;
+        const vx = ((e.clientX - r.left) / r.width) * 100;
+        let best = pts[0];
+        for (const pt of pts) if (Math.abs(pt.x - vx) < Math.abs(best.x - vx)) best = pt;
+        const px = (best.x / 100) * r.width;
+        const py = (best.y / 40) * r.height;
+        line.style.left = `${px}px`;
+        line.style.display = "block";
+        dot.style.left = `${px}px`;
+        dot.style.top = `${py}px`;
+        dot.style.display = "block";
+        tip.textContent = `${best.c.toLocaleString()} install${best.c === 1 ? "" : "s"} · ${fmtShortDate(best.d)}`;
+        tip.style.display = "block";
+        const half = tip.offsetWidth / 2;
+        tip.style.left = `${Math.max(half, Math.min(px, r.width - half))}px`;
+    });
+    wrap.addEventListener("mouseleave", () => {
+        line.style.display = "none";
+        dot.style.display = "none";
+        tip.style.display = "none";
+    });
+}
+
+// fmtShortDate turns "2026-06-01" into "Jun 1".
+function fmtShortDate(iso: string): string {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[+m[2] - 1]} ${+m[3]}`;
 }
 
 // enhanceCodeBlocks adds a GitHub-style copy button to the top-right of every

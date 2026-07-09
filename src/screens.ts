@@ -1060,10 +1060,19 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
 
 function pkgSidebar(s: AppState): string {
     const p = s.pkg!;
-    const counts = s.installSeries.map((pt) => pt.count);
+    // The monthly trend: the last 30 days of the daily series.
+    const recent = s.installSeries.slice(-30);
+    const counts = recent.map((pt) => pt.count);
     const hasInstalls = counts.some((c) => c > 0);
     const max = Math.max(1, ...counts);
     const spark = hasInstalls ? sparkline(counts.map((c) => (c / max) * 100)) : null;
+    // Per-point hover data (viewBox coords + the raw count/date) for the tooltip.
+    const sparkPts = recent.map((pt, i) => ({
+        x: recent.length > 1 ? +((i / (recent.length - 1)) * 100).toFixed(2) : 100,
+        y: +(38 - (pt.count / max) * 34).toFixed(2),
+        c: pt.count,
+        d: pt.date,
+    }));
     const installCmd = `wago pkg add ${p.name}`;
 
     // A metadata cell (label + value); rendered full-width or half-width.
@@ -1161,7 +1170,7 @@ function pkgSidebar(s: AppState): string {
           <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase">Monthly installs</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.lilac}">${esc(monthLabel)}</div>
         </div>
-        <div style="height:44px;display:flex;align-items:center">
+        <div class="spark-wrap" data-spark="${escAttr(JSON.stringify(sparkPts))}" style="position:relative;height:44px;display:flex;align-items:center">
           ${
               spark
                   ? `<svg viewBox="0 0 100 40" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible">
