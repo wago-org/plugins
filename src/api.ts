@@ -91,6 +91,7 @@ export function normalizePackage(raw: RawPackage): Package {
         official: raw.official,
         ownerLogin: raw.ownerLogin,
         allowedPublishers: raw.allowedPublishers,
+        dependencies: raw.dependencies,
         deprecatedMessage: raw.deprecatedMessage,
         compatibility: raw.compatibility || { engines: {}, platforms: [] },
         capabilities: raw.capabilities || [],

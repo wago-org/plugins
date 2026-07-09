@@ -5,7 +5,6 @@
 import type { AppState } from "./state.js";
 import type {
     Comment,
-    Issue,
     Package,
     Review,
     Stability,
@@ -505,7 +504,6 @@ export function filterPackages(s: AppState): Package[] {
 
 export function packageScreen(s: AppState): string {
     const p = s.pkg!;
-    const openIssueCount = (p.issues || []).filter((i) => i.state === "open").length;
     const tabEl = (k: string, label: string, extra = ""): string => {
         const on = s.pkgTab === k;
         return `<span data-act="tab" data-arg="${k}" style="font-size:14px;font-weight:${on ? "700" : "500"};color:${on ? C.text : C.muted};padding-bottom:12px;border-bottom:${on ? `2px solid ${C.lilac}` : "2px solid transparent"};margin-bottom:-1px;cursor:pointer;${extra}">${esc(label)}</span>`;
@@ -513,7 +511,8 @@ export function packageScreen(s: AppState): string {
     const tabs = [
         tabEl("readme", "Readme"),
         tabEl("comments", `Comments · ${s.comments.length}`),
-        tabEl("issues", `Issues · ${openIssueCount}`),
+        tabEl("dependencies", `Dependencies · ${(p.dependencies || []).length}`),
+        tabEl("dependents", `Dependents · ${dependentsOf(s, p).length}`),
         tabEl("versions", `Versions · ${p.versions.length}`),
     ].join("");
     // Subpackages + Settings tabs are anchored to the far right of the tab bar.
@@ -611,8 +610,10 @@ function pkgTabBody(s: AppState): string {
             return reviewsTab(s);
         case "comments":
             return commentsTab(s);
-        case "issues":
-            return issuesTab(s);
+        case "dependencies":
+            return dependenciesTab(s);
+        case "dependents":
+            return dependentsTab(s);
         case "versions":
             return versionsTab(s);
         case "subpackages":
@@ -938,78 +939,58 @@ function commentBody(s: AppState, c: Comment): string {
 
 // ── issues ───────────────────────────────────────────────────────────────────
 
-function issuesTab(s: AppState): string {
-    const p = s.pkg!;
-    // Live GitHub issues once synced (even if empty); else the seed sample.
-    const live = s.ghIssues !== null;
-    const issues = s.ghIssues ?? (p.issues || []);
-    const openCount = issues.filter((i) => i.state === "open").length;
-    const closedCount = issues.length - openCount;
-    const view = issues.filter((i) =>
-        s.issueFilter === "open" ? i.state === "open" : i.state === "closed",
+// dependentsOf returns registry packages that declare p as a dependency.
+function dependentsOf(s: AppState, p: Package): Package[] {
+    const target = (p.name || "").toLowerCase();
+    if (!target) return [];
+    return (s.registry?.packages || []).filter(
+        (x) => x.short !== p.short && (x.dependencies || []).some((d) => d.toLowerCase() === target),
     );
-    const filters = [
-        { k: "open", l: `Open · ${openCount}` },
-        { k: "closed", l: `Closed · ${closedCount}` },
-    ]
-        .map((f) => {
-            const on = s.issueFilter === f.k;
-            return `<button data-act="issue-filter" data-arg="${f.k}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${on ? C.bg : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:6px 13px;border-radius:6px;cursor:pointer">${esc(f.l)}</button>`;
-        })
-        .join("");
-    const syncLabel = s.ghIssuesLoading ? "⟳ Syncing…" : live ? "⟳ Re-sync" : "⟳ Sync from GitHub";
-    const syncBtn = `<button data-act="sync-issues"${s.ghIssuesLoading ? " disabled" : ""} style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:6px 13px;border-radius:8px;cursor:${s.ghIssuesLoading ? "default" : "pointer"};opacity:${s.ghIssuesLoading ? "0.6" : "1"}">${syncLabel}</button>`;
-    // A subtle note when a sync failed / rate-limited and we're on seed data.
-    const note = s.ghIssuesError
-        ? `<div style="font-size:12px;color:${C.muted};margin-bottom:12px">Showing sample data — couldn't reach GitHub (it may be rate-limited). Try again later.</div>`
-        : live
-          ? `<div style="font-size:12px;color:${C.muted};margin-bottom:12px">Live issues from GitHub.</div>`
-          : "";
-    const rows =
-        view.map((it, i) => issueRow(p, it, i === 0)).join("") ||
-        `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel}">No ${s.issueFilter} issues.</div>`;
-    return `
-<div>
-  <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
-    <div style="display:flex;gap:2px;background:${C.deep};border:1px solid ${C.line};border-radius:9px;padding:3px">${filters}</div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      ${syncBtn}
-      <a href="${escAttr(p.repository)}/issues" target="_blank" rel="noopener" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.lilac}">new issue on GitHub ↗</a>
-    </div>
-  </div>
-  ${note}
-  <div style="border:1px solid ${C.line};border-radius:14px;overflow:hidden">${rows}</div>
-</div>`;
 }
 
-const LABEL_STYLE: Record<string, { color: string; bg: string; border: string }> = {
-    tinygo: { color: "#ffb4d2", bg: "#3a1f34", border: "#6b3453" },
-    bug: { color: "#ffb4d2", bg: "#3a1f34", border: "#6b3453" },
-    enhancement: { color: "#c3a8ff", bg: "#221c52", border: "#443a8c" },
-    docs: { color: "#74e0ad", bg: "#16322c", border: "#2e5a48" },
-    "good first issue": { color: "#74e0ad", bg: "#16322c", border: "#2e5a48" },
-};
+// dependenciesTab lists the packages this package depends on.
+function dependenciesTab(s: AppState): string {
+    const deps = s.pkg!.dependencies || [];
+    if (!deps.length) return depEmpty("No dependencies", "This package doesn’t declare any wago dependencies.");
+    return `<div style="display:flex;flex-direction:column;gap:10px">${deps.map((m) => depRow(s, m)).join("")}</div>`;
+}
 
-function issueRow(p: Package, it: Issue, first: boolean): string {
-    const labels = it.labels
-        .map((l) => {
-            const st = LABEL_STYLE[l] || { color: C.lilac, bg: C.panel, border: C.line2 };
-            return `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${st.color};background:${st.bg};border:1px solid ${st.border};padding:2px 8px;border-radius:100px">${esc(l)}</span>`;
-        })
-        .join("");
-    const open = it.state === "open";
-    return `
-            <a href="${escAttr(p.repository)}/issues/${it.num}" target="_blank" rel="noopener" style="text-decoration:none;display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center;padding:15px 18px;border-top:${first ? "none" : `1px solid ${C.line}`};background:${C.panel}">
-              <span style="font-size:15px;color:${open ? C.green : "#8d7fc7"};margin-top:1px">${open ? "◉" : "✓"}</span>
-              <div style="min-width:0">
-                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:4px">
-                  <span style="font-size:14.5px;font-weight:600;color:${C.text}">${esc(it.title)}</span>
-                  ${labels}
-                </div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">#${it.num} · opened ${esc(it.age)} by ${esc(it.author)}</div>
-              </div>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted};white-space:nowrap">${it.comments} · comments</span>
-            </a>`;
+// dependentsTab lists the registry packages that depend on this one.
+function dependentsTab(s: AppState): string {
+    const dependents = dependentsOf(s, s.pkg!);
+    if (!dependents.length) return depEmpty("No dependents", "No packages in the registry depend on this one yet.");
+    return `<div style="display:flex;flex-direction:column;gap:10px">${dependents.map((x) => pkgLinkRow(x)).join("")}</div>`;
+}
+
+// depRow renders one dependency: a card link when it is a registry package, else
+// the bare module path with a source link.
+function depRow(s: AppState, module: string): string {
+    const pkg = (s.registry?.packages || []).find((x) => (x.name || "").toLowerCase() === module.toLowerCase());
+    if (pkg) return pkgLinkRow(pkg);
+    const gh = /^github\.com\//.test(module) ? `https://${module}` : "";
+    return `<div style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.text};flex:1;min-width:0;overflow-x:auto;white-space:nowrap">${esc(module)}</span>
+      ${gh ? `<a href="${escAttr(gh)}" target="_blank" rel="noopener" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.lilac};flex-shrink:0">source ↗</a>` : `<span style="font-size:11px;color:${C.muted};flex-shrink:0">not in registry</span>`}
+    </div>`;
+}
+
+// pkgLinkRow is a compact card linking to a registry package page.
+function pkgLinkRow(p: Package): string {
+    return `<a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
+      <div style="min-width:0">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.text}">${esc(p.short)}</div>
+        <div style="font-size:12.5px;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description || p.name)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">★ ${(p.stars || 0).toLocaleString()}</div>
+    </a>`;
+}
+
+// depEmpty is the empty-state card for the dependency/dependent tabs.
+function depEmpty(title: string, sub: string): string {
+    return `<div style="padding:40px 24px;text-align:center;background:${C.panel};border:1px solid ${C.line};border-radius:14px">
+      <div style="font-size:15px;font-weight:700;color:${C.soft};margin-bottom:6px">${esc(title)}</div>
+      <div style="font-size:13px;color:${C.muted}">${esc(sub)}</div>
+    </div>`;
 }
 
 // ── versions ─────────────────────────────────────────────────────────────────
