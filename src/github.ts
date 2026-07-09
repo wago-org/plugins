@@ -197,6 +197,33 @@ export async function fetchRepo(owner: string, repo: string): Promise<GhRepo | n
     }
 }
 
+// searchUsers returns GitHub accounts (users + orgs) matching a query, for the
+// publisher autocomplete. Cached + deduped; empty for very short queries or on
+// failure (rate-limit / offline). Unauthenticated search is ~10 req/min, so
+// callers should debounce.
+export async function searchUsers(query: string): Promise<GhAccountRef[]> {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const key = `usersearch.${q}`.toLowerCase();
+    const cached = cacheGet<GhAccountRef[]>(key);
+    if (cached) return cached;
+    if (inFlight.has(key)) return (await inFlight.get(key)) as GhAccountRef[];
+    const p = (async (): Promise<GhAccountRef[]> => {
+        const raw = await ghFetch<{ items?: { login: string; avatar_url: string }[] }>(
+            `/search/users?q=${encodeURIComponent(q)}&per_page=7`,
+        );
+        const out = (raw?.items || []).map((u) => ({ login: u.login, avatarUrl: u.avatar_url }));
+        cacheSet(key, out);
+        return out;
+    })();
+    inFlight.set(key, p);
+    try {
+        return await p;
+    } finally {
+        inFlight.delete(key);
+    }
+}
+
 // --- Users (profile pictures) ---
 
 export interface GhUser {

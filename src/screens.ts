@@ -1258,10 +1258,33 @@ function publishersBody(s: AppState): string {
               .join("")
         : `<span style="font-size:12.5px;color:${C.muted}">Author-only — only @${esc(p.ownerLogin || "")} and the repo's admins can publish.</span>`;
     return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${chips}</div>
-      <div style="display:flex;gap:6px;max-width:360px">
-        <input data-act="publisher-draft" value="${escAttr(s.publisherDraft)}" placeholder="github login" spellcheck="false" style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:9px;padding:8px 10px" />
-        <button data-act="publisher-add" style="flex-shrink:0;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:${C.bg};background:${C.lilac};border:none;padding:8px 14px;border-radius:9px;cursor:pointer">Add</button>
+      <div data-pub-search style="position:relative;max-width:360px">
+        <div style="display:flex;gap:6px">
+          <input data-act="publisher-draft" value="${escAttr(s.publisherDraft)}" placeholder="search GitHub username" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:9px;padding:8px 10px" />
+          <button data-act="publisher-add" style="flex-shrink:0;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:${C.bg};background:${C.lilac};border:none;padding:8px 14px;border-radius:9px;cursor:pointer">Add</button>
+        </div>
+        <div class="pub-dropdown" style="position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30">${publisherDropdownHtml(s)}</div>
       </div>`;
+}
+
+// publisherDropdownHtml builds the GitHub-search autocomplete under the publisher
+// input. Exported so app.ts can patch just this slot as results arrive, without a
+// full re-render (which would steal the input's focus). Already-added logins and
+// the owner are filtered out.
+export function publisherDropdownHtml(s: AppState): string {
+    const p = s.pkg;
+    if (!p) return "";
+    const already = new Set((p.allowedPublishers || []).map((x) => x.toLowerCase()).concat((p.ownerLogin || "").toLowerCase()));
+    const results = (s.publisherResults || []).filter((u) => !already.has(u.login.toLowerCase()));
+    if (!results.length) return "";
+    return `<div style="background:${C.panel};border:1px solid ${C.line2};border-radius:10px;box-shadow:0 20px 40px -16px rgba(0,0,0,.7);overflow:hidden">
+      ${results
+          .map(
+              (u, i) =>
+                  `<button data-act="publisher-pick" data-arg="${escAttr(u.login)}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:none;${i ? `border-top:1px solid ${C.line};` : ""}padding:7px 11px;cursor:pointer;color:${C.text}"><img src="${escAttr(u.avatarUrl)}" alt="" style="width:22px;height:22px;border-radius:50%;flex-shrink:0" /><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">@${esc(u.login)}</span></button>`,
+          )
+          .join("")}
+    </div>`;
 }
 
 // deprecateBody toggles the package's deprecation notice.

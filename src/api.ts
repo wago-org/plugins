@@ -90,6 +90,7 @@ export function normalizePackage(raw: RawPackage): Package {
         verified: !!raw.verified,
         official: raw.official,
         ownerLogin: raw.ownerLogin,
+        allowedPublishers: raw.allowedPublishers,
         deprecatedMessage: raw.deprecatedMessage,
         compatibility: raw.compatibility || { engines: {}, platforms: [] },
         capabilities: raw.capabilities || [],

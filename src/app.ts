@@ -13,6 +13,7 @@ import {
     homeScreen,
     nav,
     packageScreen,
+    publisherDropdownHtml,
     searchRows,
     searchScreen,
     searchSummary,
@@ -988,18 +989,66 @@ async function savePublishers(next: string[]): Promise<void> {
     render();
 }
 
+// onPublisherInput debounces a GitHub user search and patches just the dropdown
+// slot (a full render would steal the input's focus).
+let publisherSearchTimer: ReturnType<typeof setTimeout> | undefined;
+function onPublisherInput(): void {
+    clearTimeout(publisherSearchTimer);
+    const q = state.publisherDraft.trim();
+    if (q.length < 2) {
+        state.publisherResults = [];
+        patchPublisherDropdown();
+        return;
+    }
+    publisherSearchTimer = setTimeout(() => {
+        void github.searchUsers(q).then((results) => {
+            if (state.publisherDraft.trim() !== q) return; // draft moved on
+            state.publisherResults = results;
+            patchPublisherDropdown();
+        });
+    }, 280);
+}
+
+// patchPublisherDropdown re-renders only the autocomplete slot in place.
+function patchPublisherDropdown(): void {
+    const el = root().querySelector<HTMLElement>(".pub-dropdown");
+    if (el) el.innerHTML = publisherDropdownHtml(state);
+}
+
 async function addPublisher(): Promise<void> {
     const p = state.pkg;
     const login = state.publisherDraft.trim().replace(/^@/, "");
-    if (!p || !login) return;
+    if (!p || !login) return await clearPublisherSearch(true);
     const list = p.allowedPublishers || [];
+    state.publisherDraft = "";
+    state.publisherResults = [];
     if (!list.some((x) => x.toLowerCase() === login.toLowerCase())) {
-        state.publisherDraft = "";
         await savePublishers([...list, login]);
     } else {
-        state.publisherDraft = "";
         render();
     }
+}
+
+// pickPublisher adds a login chosen from the autocomplete dropdown.
+async function pickPublisher(login: string): Promise<void> {
+    const p = state.pkg;
+    if (!p) return;
+    state.publisherDraft = "";
+    state.publisherResults = [];
+    const list = p.allowedPublishers || [];
+    if (!list.some((x) => x.toLowerCase() === login.toLowerCase())) {
+        await savePublishers([...list, login]);
+    } else {
+        render();
+    }
+}
+
+// clearPublisherSearch drops any open autocomplete (and optionally re-renders).
+async function clearPublisherSearch(rerender = false): Promise<void> {
+    if (!state.publisherResults.length && !rerender) return;
+    state.publisherResults = [];
+    if (rerender) render();
+    else patchPublisherDropdown();
 }
 
 async function removePublisher(login: string): Promise<void> {
@@ -1149,6 +1198,9 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             break;
         case "publisher-remove":
             if (arg) void removePublisher(arg);
+            break;
+        case "publisher-pick":
+            if (arg) void pickPublisher(arg);
             break;
         case "deprecate":
             void setDeprecated(state.deprecateDraft.trim(), false);
@@ -1363,7 +1415,10 @@ function wireEvents(): void {
         else if (act === "bio") state.bioDraft = value;
         else if (act === "comment-draft") state.commentDraft = value;
         else if (act === "report-detail") state.reportDetail = value;
-        else if (act === "publisher-draft") state.publisherDraft = value;
+        else if (act === "publisher-draft") {
+            state.publisherDraft = value;
+            onPublisherInput();
+        }
         else if (act === "deprecate-draft") state.deprecateDraft = value;
         else if (act === "comment-edit-draft") state.commentEditDraft = value;
         else if (act === "reply-draft") state.replyDraft = value;
@@ -1397,11 +1452,15 @@ function wireEvents(): void {
 
     // Close the profile menu on an outside click.
     document.addEventListener("mousedown", (e) => {
-        if (!state.menuOpen) return;
-        const inMenu = (e.target as HTMLElement).closest?.("[data-profile-menu]");
-        if (!inMenu) {
+        const t = e.target as HTMLElement;
+        if (state.menuOpen && !t.closest?.("[data-profile-menu]")) {
             state.menuOpen = false;
             render();
+        }
+        // Close the publisher autocomplete on an outside click (a click inside —
+        // the input or a result — keeps it so the pick registers).
+        if (state.publisherResults.length && !t.closest?.("[data-pub-search]")) {
+            void clearPublisherSearch();
         }
     });
 

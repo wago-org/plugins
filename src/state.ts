@@ -55,6 +55,7 @@ export interface AppState {
 
     // Settings tab (package owner / admin).
     publisherDraft: string;
+    publisherResults: { login: string; avatarUrl: string }[]; // GitHub autocomplete
     deprecateDraft: string;
 
     // GitHub issue sync (client-side fetch)
@@ -133,6 +134,7 @@ export const state: AppState = {
     reportSending: false,
     reportDone: false,
     publisherDraft: "",
+    publisherResults: [],
     deprecateDraft: "",
 
     ghIssues: null,
