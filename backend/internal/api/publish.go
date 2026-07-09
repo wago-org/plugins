@@ -87,6 +87,24 @@ func hasWrite(perm string) bool {
 	return false
 }
 
+// normalizeDeps trims, dedupes, and drops empties + self-references from a
+// manifest's dependency list.
+func normalizeDeps(list []string, self string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, d := range list {
+		d = strings.TrimSpace(d)
+		if d == "" || strings.EqualFold(d, self) {
+			continue
+		}
+		if key := strings.ToLower(d); !seen[key] {
+			seen[key] = true
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // containsFold reports whether list contains s, case-insensitively.
 func containsFold(list []string, s string) bool {
 	for _, v := range list {
@@ -189,6 +207,9 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	if len(req.Manifest.Keywords) > 0 {
 		p.Keywords = unionStrings(p.Keywords, req.Manifest.Keywords)
 	}
+	// Dependencies are replaced from the manifest each publish (the manifest is
+	// the source of truth), trimmed + deduped, with self-references dropped.
+	p.Dependencies = normalizeDeps(req.Manifest.Dependencies, req.Manifest.Module)
 	if len(req.Manifest.Authors) > 0 {
 		p.Authors = parseAuthors(req.Manifest.Authors)
 	} else if len(p.Authors) == 0 {

@@ -59,19 +59,20 @@ type Manifest struct {
 // ManifestPkg is one node of a self-similar wago.json — the module itself or a
 // subpackage. Identity is the module path; there is no separate id.
 type ManifestPkg struct {
-	Module      string            `json:"module"`
-	Name        string            `json:"name,omitempty"`
-	Version     string            `json:"version,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Stability   Stability         `json:"stability,omitempty"`
-	License     string            `json:"license,omitempty"`
-	Homepage    string            `json:"homepage,omitempty"`
-	Repository  string            `json:"repository,omitempty"`
-	Authors     []string          `json:"authors,omitempty"`
-	Keywords    []string          `json:"keywords,omitempty"`
-	Engines     map[string]string `json:"engines,omitempty"`
-	Platforms   []string          `json:"platforms,omitempty"`
-	Subpackages []ManifestSub     `json:"subpackages,omitempty"`
+	Module       string            `json:"module"`
+	Name         string            `json:"name,omitempty"`
+	Version      string            `json:"version,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	Stability    Stability         `json:"stability,omitempty"`
+	License      string            `json:"license,omitempty"`
+	Homepage     string            `json:"homepage,omitempty"`
+	Repository   string            `json:"repository,omitempty"`
+	Authors      []string          `json:"authors,omitempty"`
+	Keywords     []string          `json:"keywords,omitempty"`
+	Engines      map[string]string `json:"engines,omitempty"`
+	Platforms    []string          `json:"platforms,omitempty"`
+	Dependencies []string          `json:"dependencies,omitempty"` // module paths this package depends on
+	Subpackages  []ManifestSub     `json:"subpackages,omitempty"`
 }
 
 // ManifestSub is a subpackages[] element. It may be written inline as an object or
@@ -277,6 +278,7 @@ type Package struct {
 	// rights, beyond the repo's author/admins (who can always publish). Empty by
 	// default: publishing is author-only until the owner configures this.
 	AllowedPublishers []string      `json:"allowedPublishers,omitempty"`
+	Dependencies      []string      `json:"dependencies,omitempty"` // module paths this package depends on
 	Readme            string        `json:"readme,omitempty"`
 	DeprecatedMessage string        `json:"deprecatedMessage,omitempty"`
 	Compat            Compatibility `json:"compatibility"`
