@@ -758,7 +758,9 @@ async function completePendingStar(): Promise<void> {
         /* ignore */
     }
     const pkg = findPackage(state.registry, short);
-    if (pkg) void api.githubStar(pkg, true);
+    // Await so the star is recorded before route() loads the package detail —
+    // otherwise the page can render unstarred (detail fetched mid-flight).
+    if (pkg) await api.githubStar(pkg, true);
 }
 
 async function submitReview(): Promise<void> {
