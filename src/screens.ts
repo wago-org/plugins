@@ -133,19 +133,19 @@ export function nav(s: AppState): string {
     const homeColor = s.screen === "home" ? C.text : C.dim;
     const right = s.user ? profileMenu(s) : signInButton();
     return `
-<nav style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:20px;padding:14px 0;background:rgba(26,21,71,0.9);backdrop-filter:blur(12px);border-bottom:1px solid ${C.line}">
+<nav class="r-nav" style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:20px;padding:14px 0;background:rgba(26,21,71,0.9);backdrop-filter:blur(12px);border-bottom:1px solid ${C.line}">
   <a href="/" data-act="home" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0">
     <img src="/assets/wago-logo.png" alt="wago" style="width:34px;height:34px;border-radius:9px;flex-shrink:0" />
     <span style="font-weight:800;font-size:20px;letter-spacing:-0.5px">wago</span>
-    <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.lilac};border:1px solid ${C.line2};padding:3px 10px;border-radius:100px;margin-left:2px">packages</span>
+    <span class="r-navtag" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.lilac};border:1px solid ${C.line2};padding:3px 10px;border-radius:100px;margin-left:2px">packages</span>
   </a>
-  <div style="flex:1;display:flex;align-items:center;gap:10px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:9px 14px;max-width:560px">
+  <div class="r-navsearch" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:9px 14px;max-width:560px">
     <span style="color:${C.muted};font-size:15px">⌕</span>
-    <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search packages…" style="flex:1;background:transparent;border:none;outline:none;color:${C.text};font-size:14.5px" />
+    <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search packages…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:${C.text};font-size:14.5px" />
     <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.muted};border:1px solid ${C.line};padding:2px 7px;border-radius:5px">↵</span>
   </div>
   <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
-    <a href="/" data-act="home" style="text-decoration:none;font-size:14px;font-weight:600;color:${homeColor}">Browse</a>
+    <a href="/" data-act="home" class="r-navbrowse" style="text-decoration:none;font-size:14px;font-weight:600;color:${homeColor}">Browse</a>
     <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none;padding:9px 16px;border-radius:9px;background:${C.lilac};color:${C.bg};font-weight:700;font-size:14px">Publish ↗</a>
     ${right}
   </div>
@@ -306,26 +306,26 @@ export function homeScreen(s: AppState): string {
 
     return `
 <div>
-  <section style="text-align:center;padding:72px 0 40px">
+  <section class="r-hero" style="text-align:center;padding:72px 0 40px">
     <div style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.lilac};background:${C.panel};border:1px solid ${C.line};padding:6px 14px;border-radius:100px;margin-bottom:24px">✦ the wago package registry</div>
-    <h1 style="font-weight:900;font-size:clamp(36px,5.5vw,58px);line-height:1.02;letter-spacing:-2px;margin:0 0 16px">Extend your runtime.<br><span style="color:${C.lilac}">One import away.</span></h1>
-    <p style="font-size:18px;line-height:1.6;color:${C.soft};margin:0 auto 34px;max-width:560px">Host-import bundles, WASI shims, debuggers and codegen backends — drop-in Go modules for the wago engine.</p>
+    <h1 style="font-weight:900;font-size:clamp(30px,5.5vw,58px);line-height:1.04;letter-spacing:-2px;margin:0 0 16px">Extend your runtime.<br><span style="color:${C.lilac}">One import away.</span></h1>
+    <p style="font-size:clamp(15px,2.6vw,18px);line-height:1.6;color:${C.soft};margin:0 auto 34px;max-width:560px">Host-import bundles, WASI shims, debuggers and codegen backends — drop-in Go modules for the wago engine.</p>
     <div style="display:flex;align-items:center;gap:11px;background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:14px 18px;max-width:600px;margin:0 auto 18px">
       <span style="color:${C.muted};font-size:20px">⌕</span>
-      <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search ${esc(totalLabel)} packages…" style="flex:1;background:transparent;border:none;outline:none;color:${C.text};font-size:17px" />
+      <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search ${esc(totalLabel)} packages…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:${C.text};font-size:17px" />
       <button data-act="search" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Search</button>
     </div>
     <div style="display:flex;justify-content:center;gap:9px;flex-wrap:wrap">${cats}</div>
   </section>
 
-  <section style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:16px 0 56px">${stats}</section>
+  <section class="r-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:16px 0 56px">${stats}</section>
 
   <section style="margin-bottom:52px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
       <h2 style="font-weight:800;font-size:24px;letter-spacing:-0.6px;margin:0">Featured packages</h2>
       <a href="/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.lilac}">browse all →</a>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${featured || emptyCatalogNote()}</div>
+    <div class="r-grid3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${featured || emptyCatalogNote()}</div>
   </section>
 
   <section style="margin-bottom:72px">
@@ -423,8 +423,8 @@ export function searchScreen(s: AppState): string {
         })
         .join("");
     return `
-<div style="display:grid;grid-template-columns:220px 1fr;gap:32px;padding:32px 0 72px;align-items:start">
-  <aside style="position:sticky;top:78px;display:flex;flex-direction:column;gap:26px">
+<div class="r-split" style="display:grid;grid-template-columns:220px 1fr;gap:32px;padding:32px 0 72px;align-items:start">
+  <aside class="r-side" style="position:sticky;top:78px;display:flex;flex-direction:column;gap:26px">
     <div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">Category</div>
       <div style="display:flex;flex-direction:column;gap:9px">${filterCats}</div>
@@ -544,7 +544,7 @@ export function packageScreen(s: AppState): string {
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
     <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.name)}</h1>
     ${badges}
-    <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}${repoBtn}</div>
+    <div class="r-pkgactions" style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}${repoBtn}</div>
   </div>
   <p style="font-size:17px;line-height:1.6;color:${C.soft};margin:0 0 14px;max-width:680px">${esc(p.description)}</p>
   <div style="display:flex;align-items:center;gap:18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin:0 0 28px;flex-wrap:wrap">
@@ -554,12 +554,12 @@ export function packageScreen(s: AppState): string {
   </div>
 
   ${p.deprecatedMessage ? deprecationBanner(p.deprecatedMessage) : ""}
-  <div style="display:grid;grid-template-columns:1fr 300px;gap:36px;align-items:start">
+  <div class="r-split" style="display:grid;grid-template-columns:1fr 300px;gap:36px;align-items:start">
     <main style="min-width:0">
       ${
           s.sub
               ? subpackageDetail(s)
-              : `<div style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}${subTab}${settingsTabEl}</div>
+              : `<div class="r-tabs" style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}${subTab}${settingsTabEl}</div>
       ${pkgTabBody(s)}`
       }
     </main>
@@ -1064,7 +1064,7 @@ function pkgSidebar(s: AppState): string {
     const metaRow = (inner: string, top: boolean): string =>
         `<div style="padding:15px 0;border-top:${top ? `1px solid ${C.line}` : "none"}">${inner}</div>`;
     const splitRow = (a: string, b: string, top: boolean): string =>
-        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:15px 0;border-top:${top ? `1px solid ${C.line}` : "none"}">${a}${b}</div>`;
+        `<div class="r-2col" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:15px 0;border-top:${top ? `1px solid ${C.line}` : "none"}">${a}${b}</div>`;
 
     const openIssues = (p.issues || []).filter((i) => i.state === "open").length;
     const metaRows =
@@ -1438,8 +1438,8 @@ export function accountScreen(s: AppState): string {
 
     return `
 <div style="padding:32px 0 72px">
-  <div style="display:grid;grid-template-columns:230px 1fr;gap:32px;align-items:start">
-    <aside style="position:sticky;top:78px;display:flex;flex-direction:column;gap:14px">
+  <div class="r-split" style="display:grid;grid-template-columns:230px 1fr;gap:32px;align-items:start">
+    <aside class="r-side" style="position:sticky;top:78px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:15px">
         ${avatarSpan(u.name, u.initial, u.bg, u.avatarUrl, 44, 17)}
         <div style="min-width:0">
@@ -1516,7 +1516,7 @@ function acctProfile(s: AppState): string {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px">
+        <div class="r-grid3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px">
           <div style="background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:18px 20px;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:28px;color:${C.lilac};line-height:1">${owned.length}</div><div style="font-size:12.5px;color:${C.muted};margin-top:5px">packages published</div></div>
           <a href="#/account" data-act="acct-tab" data-arg="stars" style="text-decoration:none;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:18px 20px;text-align:center;display:block"><div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:28px;color:${C.green};line-height:1">${s.starShorts ? s.starShorts.length : "—"}</div><div style="font-size:12.5px;color:${C.muted};margin-top:5px">★ stars given</div></a>
           <div style="background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:18px 20px;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:28px;color:${C.pink};line-height:1">${compactNum(owned.reduce((a, b) => a + b.installsWeek, 0))}</div><div style="font-size:12.5px;color:${C.muted};margin-top:5px">installs / week</div></div>
@@ -1802,7 +1802,7 @@ export function userScreen(s: AppState): string {
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px">
+  <div class="r-grid3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px">
     ${statCard(String(pkgs.length), "packages", C.lilac)}
     ${statCard(compactNum(totalStars), "★ stars received", C.green)}
     ${statCard(compactNum(totalInstalls), "installs / week", C.pink)}

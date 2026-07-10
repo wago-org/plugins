@@ -441,3 +441,105 @@ button {
 .readme .md .token.important {
     font-weight: 700;
 }
+
+/* ============================================================================
+   Responsive / mobile
+
+   The screens render with desktop-first inline styles, so these rules are the
+   single place mobile layout lives. Where a rule must beat an inline style it
+   uses !important (scoped to the r-* hooks the render layer adds); everything
+   else is a plain override. Breakpoints: 960 (tablet), 760 (nav), 600 (phone).
+   ========================================================================== */
+
+@media (max-width: 960px) {
+    /* Two-column shells (package body, search, account) collapse to one column,
+       and their sticky sidebars stop sticking so they read as normal sections. */
+    .r-split {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+    }
+    .r-side {
+        position: static !important;
+        top: auto !important;
+    }
+    /* 3-up card grids step down to 2-up first. */
+    .r-grid3 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 900px) {
+    /* Nav wraps to two rows: brand + actions, then a full-width search bar. The
+       redundant "Browse" link and the "packages" pill drop to save width. */
+    .r-nav {
+        flex-wrap: wrap !important;
+        gap: 12px !important;
+    }
+    .r-navsearch {
+        order: 3;
+        /* !important beats the inline `flex:1` (which sets flex-basis:0); a 100%
+           basis forces the search onto its own row below the brand + actions. */
+        flex-basis: 100% !important;
+        max-width: none !important;
+    }
+    .r-navbrowse,
+    .r-navtag {
+        display: none !important;
+    }
+}
+
+@media (max-width: 600px) {
+    /* Tighter page gutters reclaim horizontal space on phones. */
+    #app {
+        padding: 0 14px;
+    }
+    /* Everything single-column at phone width. */
+    .r-grid3,
+    .r-stats,
+    .r-2col {
+        grid-template-columns: 1fr !important;
+    }
+    /* Trim the tall home hero. */
+    .r-hero {
+        padding-top: 40px !important;
+        padding-bottom: 24px !important;
+    }
+    /* The package action buttons (save/star/repo) wrap onto their own full-width
+       row instead of overflowing to the right of the title. */
+    .r-pkgactions {
+        margin-left: 0 !important;
+        width: 100%;
+        flex-wrap: wrap !important;
+    }
+    /* 16px is the threshold below which iOS Safari zooms on input focus. */
+    input,
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+    /* Package tab bar becomes a swipeable strip instead of wrapping / overflowing;
+       the anchored (margin-left:auto) tabs rejoin the normal flow. */
+    .r-tabs {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        gap: 18px !important;
+        scrollbar-width: none;
+    }
+    .r-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .r-tabs > * {
+        margin-left: 0 !important;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+}
+
+/* Long unbreakable tokens in rendered Markdown / READMEs (e.g. module paths,
+   `wasm32-wasip1`) wrap instead of forcing horizontal page scroll on narrow
+   viewports. Applies at every width — it only ever helps. */
+.md code,
+.readme .md code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
