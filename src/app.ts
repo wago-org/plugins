@@ -291,6 +291,29 @@ function showAccount(tab: AcctTab, push: boolean): void {
     render();
     scrollTop();
     void loadStars();
+    if (tab === "reports") void loadReports();
+}
+
+// loadReports fetches the moderation queue (admins only), then re-renders if the
+// Reports tab is still open.
+async function loadReports(): Promise<void> {
+    if (!state.user?.admin) return;
+    try {
+        state.reports = await api.loadReports();
+    } catch {
+        state.reports = [];
+    }
+    if (state.screen === "account" && state.acctTab === "reports") render();
+}
+
+async function doResolveReport(id: string): Promise<void> {
+    try {
+        await api.resolveReport(id);
+        state.reports = (state.reports || []).map((r) => (r.id === id ? { ...r, resolved: true } : r));
+    } catch {
+        alert("Couldn't resolve that report.");
+    }
+    render();
 }
 
 function navAccount(tab: AcctTab): void {
@@ -1132,6 +1155,10 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             state.acctTab = (arg as AcctTab) || "profile";
             state.savedShorts = api.getBookmarks();
             render();
+            if (state.acctTab === "reports") void loadReports();
+            break;
+        case "resolve-report":
+            if (arg) void doResolveReport(arg);
             break;
         case "unsave":
             if (arg) {

@@ -23,6 +23,7 @@ type doc struct {
 	Votes    map[string]map[string]string `json:"votes"`    // reviewID -> userID -> "up"|"down"
 	Comments map[string]model.Comment     `json:"comments"` // commentID -> comment
 	Installs map[string]map[string]int    `json:"installs"` // short -> YYYY-MM-DD -> count
+	Reports  map[string]model.Report      `json:"reports"`  // reportID -> report
 	Tokens   map[string]model.APIToken    `json:"tokens"`   // tokenID -> token (hash only)
 }
 
@@ -68,6 +69,7 @@ func emptyDoc() doc {
 		Votes:    map[string]map[string]string{},
 		Comments: map[string]model.Comment{},
 		Installs: map[string]map[string]int{},
+		Reports:  map[string]model.Report{},
 		Tokens:   map[string]model.APIToken{},
 	}
 }
@@ -97,6 +99,9 @@ func (s *JSONStore) normalize() {
 	}
 	if s.doc.Tokens == nil {
 		s.doc.Tokens = map[string]model.APIToken{}
+	}
+	if s.doc.Reports == nil {
+		s.doc.Reports = map[string]model.Report{}
 	}
 }
 
@@ -217,6 +222,11 @@ func (s *JSONStore) DeletePackage(short string) error {
 	for id, c := range s.doc.Comments {
 		if c.PackageShort == short {
 			delete(s.doc.Comments, id)
+		}
+	}
+	for id, r := range s.doc.Reports {
+		if r.PackageShort == short {
+			delete(s.doc.Reports, id)
 		}
 	}
 	return s.persistLocked()
@@ -573,6 +583,49 @@ func (s *JSONStore) SetCommentArchived(id string, archived bool) (model.Comment,
 	c.Archived = archived
 	s.doc.Comments[id] = c
 	return c, s.persistLocked()
+}
+
+// --- Reports (moderation queue) ---
+
+// sortedReports returns reports newest-first.
+func sortedReports(m map[string]model.Report) []model.Report {
+	out := make([]model.Report, 0, len(m))
+	for _, r := range m {
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt > out[j].CreatedAt })
+	return out
+}
+
+func (s *JSONStore) AddReport(short, reporterID, reporterLogin, reason, detail string) (model.Report, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := model.Report{
+		ID: newID(), PackageShort: short, ReporterID: reporterID, ReporterLogin: reporterLogin,
+		Reason: reason, Detail: detail, CreatedAt: nowRFC3339(),
+	}
+	s.doc.Reports[r.ID] = r
+	return r, s.persistLocked()
+}
+
+func (s *JSONStore) ListReports() []model.Report {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return sortedReports(s.doc.Reports)
+}
+
+func (s *JSONStore) ResolveReport(id, byLogin string) (model.Report, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.doc.Reports[id]
+	if !ok {
+		return model.Report{}, false
+	}
+	r.Resolved = true
+	r.ResolvedBy = byLogin
+	r.ResolvedAt = nowRFC3339()
+	s.doc.Reports[id] = r
+	return r, s.persistLocked() == nil
 }
 
 func (s *JSONStore) DeleteComment(id string) error {

@@ -40,8 +40,38 @@ func (a *App) handleReportPackage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "a reason is required")
 		return
 	}
-	a.notifyReport(p, u, reason, strings.TrimSpace(req.Detail))
+	detail := strings.TrimSpace(req.Detail)
+	if _, err := a.Store.AddReport(p.Short, u.ID, u.Login, reason, detail); err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	a.notifyReport(p, u, reason, detail)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleListReports returns the moderation queue (site admins only).
+func (a *App) handleListReports(w http.ResponseWriter, r *http.Request) {
+	u := a.Sessions.CurrentUser(r)
+	if u == nil || !u.Admin {
+		httpx.WriteError(w, http.StatusForbidden, "admins only")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"reports": a.Store.ListReports()})
+}
+
+// handleResolveReport marks a report resolved (site admins only).
+func (a *App) handleResolveReport(w http.ResponseWriter, r *http.Request) {
+	u := a.Sessions.CurrentUser(r)
+	if u == nil || !u.Admin {
+		httpx.WriteError(w, http.StatusForbidden, "admins only")
+		return
+	}
+	rep, ok := a.Store.ResolveReport(r.PathValue("id"), u.Login)
+	if !ok {
+		httpx.WriteError(w, http.StatusNotFound, "report not found")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, rep)
 }
 
 // notifyReport records a report and best-effort emails every site admin.

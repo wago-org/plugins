@@ -208,6 +208,7 @@ function profileMenu(s: AppState): string {
         { label: "Your packages", icon: "▤", tab: "plugins" },
         { label: "Your stars", icon: "★", tab: "stars" },
         { label: "Saved", icon: bookmarkIcon(14, "currentColor", true), tab: "saved" },
+        ...(u.admin ? [{ label: "Reports", icon: "⚑", tab: "reports" }] : []),
         { label: "Settings", icon: "⚙", tab: "settings" },
     ]
         .map(
@@ -1419,6 +1420,7 @@ export function accountScreen(s: AppState): string {
         { k: "plugins", l: "Your packages", icon: "▤" },
         { k: "stars", l: "Your stars", icon: "★" },
         { k: "saved", l: "Saved", icon: bookmarkIcon(13, "currentColor", true) },
+        ...(u.admin ? [{ k: "reports", l: "Reports", icon: "⚑" }] : []),
         { k: "settings", l: "Settings", icon: "⚙" },
     ]
         .map((n) => {
@@ -1430,6 +1432,7 @@ export function accountScreen(s: AppState): string {
     if (s.acctTab === "plugins") body = acctPlugins(s);
     else if (s.acctTab === "stars") body = acctStars(s);
     else if (s.acctTab === "saved") body = acctSaved(s);
+    else if (s.acctTab === "reports") body = acctReports(s);
     else if (s.acctTab === "settings") body = acctSettings(s);
     else body = acctProfile(s);
 
@@ -1557,6 +1560,42 @@ function acctPlugins(s: AppState): string {
           <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};padding:9px 16px;border-radius:9px">Publish a package ↗</a>
         </div>
         <div style="border:1px solid ${C.line};border-radius:14px;overflow:hidden">${rows}</div>
+      </div>`;
+}
+
+// "Reports" (admins) — the moderation queue: flagged packages, open ones first,
+// each resolvable. Resolved entries stay (dimmed) for the record.
+function acctReports(s: AppState): string {
+    const reports = s.reports;
+    if (reports === null) {
+        return `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel};border:1px solid ${C.line};border-radius:14px">Loading reports…</div>`;
+    }
+    if (reports.length === 0) {
+        return `<div style="padding:26px;color:${C.muted};font-size:14px;background:${C.panel};border:1px solid ${C.line};border-radius:14px;text-align:center">No reports — nothing has been flagged for moderation.</div>`;
+    }
+    const open = reports.filter((r) => !r.resolved);
+    const ordered = [...open, ...reports.filter((r) => r.resolved)];
+    const row = (r: import("./types.js").Report, i: number): string =>
+        `<div style="padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel};opacity:${r.resolved ? "0.55" : "1"}">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${r.detail ? "6px" : "0"}">
+          <a href="/packages/${escAttr(r.packageShort)}" data-act="open" data-arg="${escAttr(r.packageShort)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.lilac}">${esc(r.packageShort)}</a>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:${C.pink};background:#3a1f34;border:1px solid #6b3453;padding:2px 8px;border-radius:100px">${esc(r.reason)}</span>
+          <span style="font-size:12px;color:${C.muted}">by @${esc(r.reporterLogin)} · ${esc(relative(r.createdAt))}</span>
+          ${
+              r.resolved
+                  ? `<span style="margin-left:auto;font-size:11.5px;color:${C.green}">✓ resolved${r.resolvedBy ? ` by @${esc(r.resolvedBy)}` : ""}</span>`
+                  : `<button data-act="resolve-report" data-arg="${escAttr(r.id)}" style="margin-left:auto;font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;color:${C.bg};background:${C.lilac};border:none;padding:6px 13px;border-radius:8px;cursor:pointer">Resolve</button>`
+          }
+        </div>
+        ${r.detail ? `<p style="font-size:13px;line-height:1.5;color:${C.soft};margin:0">${esc(r.detail)}</p>` : ""}
+      </div>`;
+    return `
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <h1 style="font-size:22px;font-weight:800;margin:0">Reports</h1>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:${C.muted};font-weight:500">${open.length} open</span>
+        </div>
+        <div style="border:1px solid ${C.line};border-radius:14px;overflow:hidden">${ordered.map(row).join("")}</div>
       </div>`;
 }
 

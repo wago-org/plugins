@@ -68,6 +68,7 @@ export function normalizeUser(raw: Partial<User> & { login: string }): User {
         createdAt: raw.createdAt,
         emails: raw.emails,
         canStar: raw.canStar,
+        admin: raw.admin,
         initial: initialOf(name),
         bg: raw.bg || avatarBg(raw.login),
     };

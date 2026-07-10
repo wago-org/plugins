@@ -53,6 +53,7 @@ const (
 	kpComment = 'c'
 	kpInstall = 'i'
 	kpToken   = 't'
+	kpReport  = 'R'
 )
 
 // OpenPebble opens (creating if needed) a Pebble store at dir and loads the whole
@@ -112,6 +113,11 @@ func (s *PebbleStore) loadAll() error {
 			var t model.APIToken
 			if json.Unmarshal(v, &t) == nil {
 				s.doc.Tokens[t.ID] = t
+			}
+		case kpReport:
+			var r model.Report
+			if json.Unmarshal(v, &r) == nil {
+				s.doc.Reports[r.ID] = r
 			}
 		case kpStar:
 			if short, uid, ok := split2(body); ok {
@@ -319,6 +325,12 @@ func (s *PebbleStore) DeletePackage(short string) error {
 		if c.PackageShort == short {
 			delete(s.doc.Comments, id)
 			_ = b.Delete(recKey(kpComment, id), nil)
+		}
+	}
+	for id, r := range s.doc.Reports {
+		if r.PackageShort == short {
+			delete(s.doc.Reports, id)
+			_ = b.Delete(recKey(kpReport, id), nil)
 		}
 	}
 	return b.Commit(pebble.Sync)
@@ -670,6 +682,39 @@ func (s *PebbleStore) SetCommentArchived(id string, archived bool) (model.Commen
 	c.Archived = archived
 	s.doc.Comments[id] = c
 	return c, s.putJSON(recKey(kpComment, id), c)
+}
+
+// --- Reports (moderation queue) ---
+
+func (s *PebbleStore) AddReport(short, reporterID, reporterLogin, reason, detail string) (model.Report, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := model.Report{
+		ID: newID(), PackageShort: short, ReporterID: reporterID, ReporterLogin: reporterLogin,
+		Reason: reason, Detail: detail, CreatedAt: nowRFC3339(),
+	}
+	s.doc.Reports[r.ID] = r
+	return r, s.putJSON(recKey(kpReport, r.ID), r)
+}
+
+func (s *PebbleStore) ListReports() []model.Report {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return sortedReports(s.doc.Reports)
+}
+
+func (s *PebbleStore) ResolveReport(id, byLogin string) (model.Report, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.doc.Reports[id]
+	if !ok {
+		return model.Report{}, false
+	}
+	r.Resolved = true
+	r.ResolvedBy = byLogin
+	r.ResolvedAt = nowRFC3339()
+	s.doc.Reports[id] = r
+	return r, s.putJSON(recKey(kpReport, id), r) == nil
 }
 
 func (s *PebbleStore) DeleteComment(id string) error {

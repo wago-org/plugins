@@ -12,6 +12,7 @@ import type {
     InstallPoint,
     Package,
     Registry,
+    Report,
     Review,
     User,
     UserEmail,
@@ -342,6 +343,17 @@ export async function reportPackage(short: string, reason: string, detail: strin
 // DELETE endpoint as owner-unpublish, now also allowed for admins.
 export async function takedownPackage(short: string): Promise<void> {
     await apiSend(`/api/packages/${short}`, "DELETE");
+}
+
+// loadReports fetches the moderation queue (admins only).
+export async function loadReports(): Promise<Report[]> {
+    const r = await apiGet<{ reports: Report[] }>("/api/reports");
+    return r.reports || [];
+}
+
+// resolveReport marks a report resolved (admins only).
+export async function resolveReport(id: string): Promise<void> {
+    await apiSend(`/api/reports/${id}/resolve`, "POST");
 }
 
 // setPublishers replaces a package's allowed-publishers list (owner / admin).

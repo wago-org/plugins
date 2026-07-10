@@ -189,6 +189,8 @@ func (a *App) NewRouter() http.Handler {
 
 	// Moderation.
 	mux.HandleFunc("POST /api/packages/{name}/report", a.handleReportPackage)
+	mux.HandleFunc("GET /api/reports", a.handleListReports)
+	mux.HandleFunc("POST /api/reports/{id}/resolve", a.handleResolveReport)
 
 	// Publish / manage.
 	mux.HandleFunc("POST /api/publish", a.handlePublish)

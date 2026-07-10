@@ -49,6 +49,18 @@ export interface Issue {
     author: string;
 }
 
+export interface Report {
+    id: string;
+    packageShort: string;
+    reporterLogin: string;
+    reason: string;
+    detail?: string;
+    createdAt: string;
+    resolved?: boolean;
+    resolvedBy?: string;
+    resolvedAt?: string;
+}
+
 export interface Review {
     id?: string;
     userId?: string | number;

@@ -154,6 +154,21 @@ type Version struct {
 	Hash string `json:"hash,omitempty"`
 }
 
+// Report is a user's moderation flag on a package, kept in a queue for admins to
+// triage. Resolving it marks it done without deleting the record.
+type Report struct {
+	ID            string `json:"id"`
+	PackageShort  string `json:"packageShort"`
+	ReporterID    string `json:"reporterId"`
+	ReporterLogin string `json:"reporterLogin"`
+	Reason        string `json:"reason"`
+	Detail        string `json:"detail,omitempty"`
+	CreatedAt     string `json:"createdAt"`
+	Resolved      bool   `json:"resolved,omitempty"`
+	ResolvedBy    string `json:"resolvedBy,omitempty"`
+	ResolvedAt    string `json:"resolvedAt,omitempty"`
+}
+
 // APIToken is a personal access token used by the CLI / CI to authenticate API
 // requests. Only the SHA-256 hash of the token is stored; the plaintext is shown
 // once at creation.

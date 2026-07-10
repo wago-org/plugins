@@ -57,6 +57,11 @@ type Store interface {
 	SetCommentArchived(id string, archived bool) (model.Comment, error)
 	DeleteComment(id string) error
 
+	// Reports (moderation queue).
+	AddReport(short, reporterID, reporterLogin, reason, detail string) (model.Report, error)
+	ListReports() []model.Report
+	ResolveReport(id, byLogin string) (model.Report, bool)
+
 	// Installs (keyed by package short id; dates are YYYY-MM-DD).
 	RecordInstall(short, date string) error
 	InstallSeries(short string, sinceDays int) []InstallPoint
