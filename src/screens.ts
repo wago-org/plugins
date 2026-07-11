@@ -1381,15 +1381,39 @@ function deprecateBody(s: AppState): string {
       </div>`;
 }
 
-// transferBody is the ownership-transfer control: a destination login field
-// (org or user) + a Transfer button. The current owner is shown for reference.
+// transferBody is the ownership-transfer control: a destination login field with
+// GitHub-search autocomplete (like the publisher field) + a Transfer button. The
+// current owner is shown for reference.
 function transferBody(s: AppState): string {
     const p = s.pkg!;
     return `<div style="font-size:12.5px;color:${C.muted};margin-bottom:10px">Current owner: <span style="color:${C.text};font-family:'JetBrains Mono',monospace">@${esc(p.ownerLogin || "")}</span></div>
-      <div style="display:flex;gap:6px;max-width:360px">
-        <input data-act="transfer-draft" value="${escAttr(s.transferDraft)}" placeholder="destination org or user" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:9px;padding:8px 10px" />
-        <button data-act="transfer" style="flex-shrink:0;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:8px 14px;border-radius:9px;cursor:pointer">Transfer</button>
+      <div data-transfer-search style="position:relative;max-width:360px">
+        <div style="display:flex;gap:6px">
+          <input data-act="transfer-draft" value="${escAttr(s.transferDraft)}" placeholder="search GitHub org or user" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:9px;padding:8px 10px" />
+          <button data-act="transfer" style="flex-shrink:0;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:8px 14px;border-radius:9px;cursor:pointer">Transfer</button>
+        </div>
+        <div class="transfer-dropdown" style="position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30">${transferDropdownHtml(s)}</div>
       </div>`;
+}
+
+// transferDropdownHtml builds the GitHub-search autocomplete under the transfer
+// field. Exported so app.ts can patch just this slot as results arrive without a
+// full re-render (which would steal the input's focus). The current owner is
+// filtered out. Mirrors publisherDropdownHtml.
+export function transferDropdownHtml(s: AppState): string {
+    const p = s.pkg;
+    if (!p) return "";
+    const owner = (p.ownerLogin || "").toLowerCase();
+    const results = (s.transferResults || []).filter((u) => u.login.toLowerCase() !== owner);
+    if (!results.length) return "";
+    return `<div style="background:${C.panel};border:1px solid ${C.line2};border-radius:10px;box-shadow:0 20px 40px -16px rgba(0,0,0,.7);overflow:hidden">
+      ${results
+          .map(
+              (u, i) =>
+                  `<button data-act="transfer-pick" data-arg="${escAttr(u.login)}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:none;${i ? `border-top:1px solid ${C.line};` : ""}padding:7px 11px;cursor:pointer;color:${C.text}"><img src="${escAttr(u.avatarUrl)}" alt="" style="width:22px;height:22px;border-radius:50%;flex-shrink:0" /><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">@${esc(u.login)}</span></button>`,
+          )
+          .join("")}
+    </div>`;
 }
 
 // dangerPanel holds the destructive action: unpublish (owner) / take down (admin).

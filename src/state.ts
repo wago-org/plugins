@@ -58,6 +58,7 @@ export interface AppState {
     publisherResults: { login: string; avatarUrl: string }[]; // GitHub autocomplete
     deprecateDraft: string;
     transferDraft: string; // destination org/user login in the transfer-ownership field
+    transferResults: { login: string; avatarUrl: string }[]; // GitHub autocomplete for transfer
 
     // GitHub issue sync (client-side fetch)
     ghContributors: { login: string; avatarUrl: string }[] | null; // real repo contributors from GitHub (null = not loaded)
@@ -142,6 +143,7 @@ export const state: AppState = {
     publisherResults: [],
     deprecateDraft: "",
     transferDraft: "",
+    transferResults: [],
 
     ghContributors: null,
     ghIssues: null,

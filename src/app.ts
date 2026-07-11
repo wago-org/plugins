@@ -15,6 +15,7 @@ import {
     notificationsScreen,
     packageScreen,
     publisherDropdownHtml,
+    transferDropdownHtml,
     searchRows,
     searchScreen,
     searchSummary,
@@ -1159,6 +1160,45 @@ function patchPublisherDropdown(): void {
     if (el) el.innerHTML = publisherDropdownHtml(state);
 }
 
+// onTransferInput debounces a GitHub user search for the transfer-owner field and
+// patches just its dropdown slot (mirrors the publisher search).
+let transferSearchTimer: ReturnType<typeof setTimeout> | undefined;
+function onTransferInput(): void {
+    clearTimeout(transferSearchTimer);
+    const q = state.transferDraft.trim();
+    if (q.length < 2) {
+        state.transferResults = [];
+        patchTransferDropdown();
+        return;
+    }
+    transferSearchTimer = setTimeout(() => {
+        void github.searchUsers(q).then((results) => {
+            if (state.transferDraft.trim() !== q) return; // draft moved on
+            state.transferResults = results;
+            patchTransferDropdown();
+        });
+    }, 280);
+}
+
+function patchTransferDropdown(): void {
+    const el = root().querySelector<HTMLElement>(".transfer-dropdown");
+    if (el) el.innerHTML = transferDropdownHtml(state);
+}
+
+// pickTransferOwner fills the transfer field with a login chosen from the
+// dropdown (ownership is deliberate — the user still confirms via Transfer).
+function pickTransferOwner(login: string): void {
+    state.transferDraft = login;
+    state.transferResults = [];
+    render();
+}
+
+function clearTransferSearch(): void {
+    if (!state.transferResults.length) return;
+    state.transferResults = [];
+    patchTransferDropdown();
+}
+
 // sendPublishInvite creates a pending publish invite for a login. They must
 // accept it (in their notifications) before they can publish; until then it
 // shows as a pending chip.
@@ -1430,6 +1470,9 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
         case "transfer":
             void transferPackage();
             break;
+        case "transfer-pick":
+            if (arg) pickTransferOwner(arg);
+            break;
         case "composer-open":
             if (!state.user) {
                 navAuth();
@@ -1642,7 +1685,10 @@ function wireEvents(): void {
             onPublisherInput();
         }
         else if (act === "deprecate-draft") state.deprecateDraft = value;
-        else if (act === "transfer-draft") state.transferDraft = value;
+        else if (act === "transfer-draft") {
+            state.transferDraft = value;
+            onTransferInput();
+        }
         else if (act === "comment-edit-draft") state.commentEditDraft = value;
         else if (act === "reply-draft") state.replyDraft = value;
         else if (act === "email-draft") state.emailDraft = value;
@@ -1684,6 +1730,9 @@ function wireEvents(): void {
         // the input or a result — keeps it so the pick registers).
         if (state.publisherResults.length && !t.closest?.("[data-pub-search]")) {
             void clearPublisherSearch();
+        }
+        if (state.transferResults.length && !t.closest?.("[data-transfer-search]")) {
+            clearTransferSearch();
         }
     });
 
