@@ -47,6 +47,14 @@ function relative(iso: string): string {
     return iso ? relativeDate(iso) : "—";
 }
 
+// ownerFromModule extracts the GitHub owner from a module path, e.g.
+// "github.com/wago-org/wasi" → "wago-org". Empty when it's not a github path.
+function ownerFromModule(module: string | undefined): string {
+    if (!module) return "";
+    const m = module.match(/github\.com\/([^/]+)\//i);
+    return m ? m[1] : "";
+}
+
 // Ensure a blog value is a usable href (GitHub stores some without a scheme).
 function profileHref(blog: string): string {
     return /^https?:\/\//i.test(blog) ? blog : `https://${blog}`;
@@ -167,7 +175,8 @@ function notifBell(s: AppState): string {
     const badge = pending
         ? `<span style="position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:100px;background:${C.pink};color:${C.bg};font-size:10px;font-weight:800;line-height:16px;text-align:center">${pending > 9 ? "9+" : pending}</span>`
         : "";
-    return `<a href="/notifications" data-act="notifications" title="Notifications" style="position:relative;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;border:1px solid ${active ? C.lilac : C.line2};color:${active ? C.lilac : C.text};text-decoration:none;font-size:16px">🔔${badge}</a>`;
+    const bell = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+    return `<a href="/notifications" data-act="notifications" title="Notifications" aria-label="Notifications" style="position:relative;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;border:1px solid ${active ? C.lilac : C.line2};color:${active ? C.lilac : C.text};text-decoration:none">${bell}${badge}</a>`;
 }
 
 // notificationsScreen is the signed-in user's inbox: pending publish invites and
@@ -192,7 +201,11 @@ export function notificationsScreen(s: AppState): string {
 function notificationCard(n: Notification): string {
     const pkg = esc(n.packageShort);
     const from = esc(n.fromLogin || "");
-    const link = `/${encodeURIComponent(n.fromLogin || "")}/${encodeURIComponent(n.packageShort)}`;
+    // The package URL owner segment is the repo owner (parsed from the module
+    // path, e.g. github.com/wago-org/wasi → wago-org), falling back to the
+    // inviter, then "packages".
+    const owner = ownerFromModule(n.packageName) || n.fromLogin || "packages";
+    const link = `/${encodeURIComponent(owner)}/${encodeURIComponent(n.packageShort)}`;
     const line =
         n.kind === "transfer"
             ? `<strong style="color:${C.text}">@${from}</strong> wants to transfer ownership of <a href="${escAttr(link)}" style="color:${C.lilac};text-decoration:none;font-weight:700">${pkg}</a> to you`

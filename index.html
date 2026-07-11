@@ -6,21 +6,30 @@
         <!-- Path-based routing: keep relative asset URLs resolving from the site
              root even on deep paths like /wago-org/dragline-x64. -->
         <base href="/" />
+        <!-- prerender:seo:start (build-time per-page OG/title injection; keep this block together) -->
         <title>wago packages — registry</title>
         <meta
             name="description"
             content="The wago package registry — host-import bundles, WASI shims, debuggers and codegen backends. Drop-in Go modules for the wago WebAssembly engine."
         />
-
         <link rel="canonical" href="https://pkg.wago.sh/" />
+        <meta property="og:site_name" content="wago packages" />
+        <meta property="og:type" content="website" />
         <meta property="og:title" content="wago packages — registry" />
         <meta
             property="og:description"
             content="Extend your runtime. One import away. Browse and publish packages for the wago WebAssembly engine."
         />
-        <meta property="og:type" content="website" />
         <meta property="og:url" content="https://pkg.wago.sh/" />
         <meta property="og:image" content="https://pkg.wago.sh/assets/wago-logo.png" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="wago packages — registry" />
+        <meta
+            name="twitter:description"
+            content="Extend your runtime. One import away. Browse and publish packages for the wago WebAssembly engine."
+        />
+        <meta name="twitter:image" content="https://pkg.wago.sh/assets/wago-logo.png" />
+        <!-- prerender:seo:end -->
         <meta name="theme-color" content="#1a1547" />
 
         <link rel="icon" type="image/png" href="/assets/wago-logo.png" sizes="any" />

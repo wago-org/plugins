@@ -53,9 +53,82 @@ function screenBody(): string {
 }
 
 function render(): void {
+    applyMeta();
     root().innerHTML = nav(state) + screenBody() + footer(state);
     enhanceCodeBlocks();
     enhanceSparkline();
+}
+
+const SITE = "wago packages";
+const SITE_ORIGIN = "https://pkg.wago.sh";
+
+// currentMeta derives the tab title + social/canonical metadata for the current
+// screen. (This keeps the SPA's tab title and in-app OG correct; crawlers get the
+// prerendered per-page tags baked into each package/author HTML at build time.)
+function currentMeta(): { title: string; description: string; url: string; image: string } {
+    const image = `${SITE_ORIGIN}/assets/wago-logo.png`;
+    const url = SITE_ORIGIN + location.pathname + location.search;
+    if (state.screen === "package" && state.pkg) {
+        const p = state.pkg;
+        return {
+            title: `${p.short} — ${SITE}`,
+            description: p.description || `${p.name} — a package on the wago registry.`,
+            url,
+            image,
+        };
+    }
+    if (state.screen === "user" && state.viewUser) {
+        const u = state.viewUser;
+        return {
+            title: `@${u.login} — ${SITE}`,
+            description: u.bio || `${u.name || u.login} on the wago package registry.`,
+            url,
+            image: u.avatarUrl || image,
+        };
+    }
+    if (state.screen === "account" && state.user) {
+        return { title: `@${state.user.login} — ${SITE}`, description: "Your wago account.", url, image };
+    }
+    if (state.screen === "notifications") {
+        return { title: `Notifications — ${SITE}`, description: "Your wago notifications.", url, image };
+    }
+    if (state.screen === "search") {
+        const t = state.query ? `${state.query} — search — ${SITE}` : `Search — ${SITE}`;
+        return { title: t, description: "Search the wago package registry.", url, image };
+    }
+    return {
+        title: `${SITE} — registry`,
+        description: "The wago package registry — host-import bundles, WASI shims, debuggers and codegen backends. Drop-in Go modules for the wago WebAssembly engine.",
+        url: `${SITE_ORIGIN}/`,
+        image,
+    };
+}
+
+// applyMeta updates document.title and the og/twitter/canonical/description tags
+// to match the current screen.
+function applyMeta(): void {
+    const m = currentMeta();
+    document.title = m.title;
+    setMetaTag("description", m.description, "name");
+    setMetaTag("og:title", m.title);
+    setMetaTag("og:description", m.description);
+    setMetaTag("og:url", m.url);
+    setMetaTag("og:image", m.image);
+    setMetaTag("twitter:title", m.title, "name");
+    setMetaTag("twitter:description", m.description, "name");
+    setMetaTag("twitter:image", m.image, "name");
+    const link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (link) link.href = m.url;
+}
+
+function setMetaTag(key: string, content: string, attr: "property" | "name" = "property"): void {
+    let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${CSS.escape(key)}"]`);
+    if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+    }
+    el.setAttribute("content", content);
 }
 
 interface SparkPt {
