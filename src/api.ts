@@ -29,13 +29,13 @@ type RawPackage = Partial<Package>;
 // ── remote helpers ──────────────────────────────────────────────────────────
 
 async function apiGet<T>(path: string): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}${canonicalPackageAPIPath(path)}`, { credentials: "include" });
     if (!res.ok) throw new Error(`${path} → ${res.status}`);
     return (await res.json()) as T;
 }
 
 async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${API_BASE}${canonicalPackageAPIPath(path)}`, {
         method,
         credentials: "include",
         headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -43,6 +43,14 @@ async function apiSend<T>(path: string, method: string, body?: unknown): Promise
     });
     if (!res.ok) throw new Error(`${path} → ${res.status}`);
     return (await res.json()) as T;
+}
+
+// The API keeps a package ID in one path parameter. IDs are canonical
+// owner/repository strings, so encode their slash before appending an operation.
+function canonicalPackageAPIPath(path: string): string {
+    return path.replace(/^\/api\/packages\/([^/]+)\/([^/]+)(\/.*)?$/, (_all, owner, repo, suffix = "") =>
+        `/api/packages/${encodeURIComponent(`${owner}/${repo}`)}${suffix}`,
+    );
 }
 
 // ── registry ────────────────────────────────────────────────────────────────
@@ -275,7 +283,7 @@ export async function githubStar(
     on: boolean,
 ): Promise<"ok" | "need_permission" | "error"> {
     try {
-        const res = await fetch(`${API_BASE}/api/packages/${pkg.short}/gh-star`, {
+        const res = await fetch(`${API_BASE}${canonicalPackageAPIPath(`/api/packages/${pkg.short}/gh-star`)}`, {
             method: on ? "POST" : "DELETE",
             credentials: "include",
         });

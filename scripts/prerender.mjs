@@ -114,7 +114,7 @@ async function main() {
             p.description || `${p.name || short} — a package on the wago registry.`;
         const html = template.replace(
             SEO_RE,
-            seoBlock({ title: `${short} — wago packages`, description, url, image: LOGO }),
+            seoBlock({ title: `${owner}/${short} | Plugins`, description, url, image: LOGO }),
         );
         await emit(`${owner}/${short}`, html);
         pkgCount++;
@@ -129,7 +129,7 @@ async function main() {
         const html = template.replace(
             SEO_RE,
             seoBlock({
-                title: `@${login} — wago packages`,
+                title: `@${login} | Plugins`,
                 description: `${login}'s packages on the wago registry.`,
                 url,
                 image: `https://github.com/${encodeURIComponent(login)}.png`,

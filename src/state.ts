@@ -183,8 +183,8 @@ export const state: AppState = {
     authError: null,
 };
 
-// Look up a package by its short slug (wasi-fs) or full module path.
+// Look up a package by its canonical GitHub-relative ID (owner/repository).
 export function findPackage(reg: Registry | null, key: string): Package | null {
     if (!reg) return null;
-    return reg.packages.find((p) => p.short === key || p.name === key) || null;
+    return reg.packages.find((p) => p.short === key) || null;
 }

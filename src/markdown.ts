@@ -137,7 +137,7 @@ export async function initMarkdown(): Promise<void> {
                         href = abs;
                     }
                 }
-                // Internal in-app links (/{login}, /{owner}/{short}) navigate in
+                // Internal in-app links (/{login}, /{owner}/{repository}) navigate in
                 // place; everything else opens in a new tab.
                 if (href.startsWith("/") || href.startsWith("#")) {
                     node.removeAttribute("target");

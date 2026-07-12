@@ -48,14 +48,6 @@ function relative(iso: string): string {
     return iso ? relativeDate(iso) : "—";
 }
 
-// ownerFromModule extracts the GitHub owner from a module path, e.g.
-// "github.com/wago-org/wasi" → "wago-org". Empty when it's not a github path.
-function ownerFromModule(module: string | undefined): string {
-    if (!module) return "";
-    const m = module.match(/github\.com\/([^/]+)\//i);
-    return m ? m[1] : "";
-}
-
 // Ensure a blog value is a usable href (GitHub stores some without a scheme).
 function profileHref(blog: string): string {
     return /^https?:\/\//i.test(blog) ? blog : `https://${blog}`;
@@ -202,11 +194,7 @@ export function notificationsScreen(s: AppState): string {
 function notificationCard(n: Notification): string {
     const pkg = esc(n.packageShort);
     const from = esc(n.fromLogin || "");
-    // The package URL owner segment is the repo owner (parsed from the module
-    // path, e.g. github.com/wago-org/wasi → wago-org), falling back to the
-    // inviter, then "packages".
-    const owner = ownerFromModule(n.packageName) || n.fromLogin || "packages";
-    const link = `/${encodeURIComponent(owner)}/${encodeURIComponent(n.packageShort)}`;
+    const link = `/${n.packageShort.split("/").map(encodeURIComponent).join("/")}`;
     const line =
         n.kind === "transfer"
             ? `<strong style="color:${C.text}">@${from}</strong> wants to transfer ownership of <a href="${escAttr(link)}" style="color:${C.lilac};text-decoration:none;font-weight:700">${pkg}</a> to you`
@@ -627,7 +615,7 @@ export function packageScreen(s: AppState): string {
   <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">plugins</a>${catCrumb}${sep}<span style="color:${C.lilac}">${esc(p.short)}</span></div>
 
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-    <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.name)}</h1>
+    <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.short)}</h1>
     ${badges}
     <div class="r-pkgactions" style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}${repoBtn}</div>
   </div>
@@ -726,7 +714,7 @@ function subpackagesTab(s: AppState): string {
 }
 
 // A single subpackage's page: its own readme (or the module readme as a
-// fallback), reached by clicking a card or via /{owner}/{short}/{id}.
+// fallback), reached by clicking a card or via /{owner}/{repository}/{id}.
 function subpackageDetail(s: AppState): string {
     const p = s.pkg!;
     const e = p.subpackages.find((x) => x.id === s.sub);
@@ -771,7 +759,7 @@ function readmeTab(s: AppState): string {
 }
 
 // The grid of subpackage cards. Each opens the subpackage's own page in-app
-// (data-act=open-sub) at /{owner}/{short}/{id}.
+// (data-act=open-sub) at /{owner}/{repository}/{id}.
 function subpackageCards(p: Package): string {
     return p.subpackages
         .map(
@@ -1142,7 +1130,7 @@ function pkgSidebar(s: AppState): string {
         d: b.date,
     }));
     // The CLI is prefix-tolerant, so drop the github.com/ host for a cleaner command.
-    const installCmd = `wago add ${p.name.replace(/^github\.com\//, "")}`;
+    const installCmd = `wago add ${p.short}`;
 
     // A metadata cell (label + value); rendered full-width or half-width.
     const metaCell = (label: string, value: string): string =>
@@ -1716,7 +1704,7 @@ function acctReports(s: AppState): string {
     const row = (r: import("./types.js").Report, i: number): string =>
         `<div style="padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel};opacity:${r.resolved ? "0.55" : "1"}">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${r.detail ? "6px" : "0"}">
-          <a href="/packages/${escAttr(r.packageShort)}" data-act="open" data-arg="${escAttr(r.packageShort)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.lilac}">${esc(r.packageShort)}</a>
+          <a href="/${escAttr(r.packageShort)}" data-act="open" data-arg="${escAttr(r.packageShort)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.lilac}">${esc(r.packageShort)}</a>
           <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:${C.pink};background:#3a1f34;border:1px solid #6b3453;padding:2px 8px;border-radius:100px">${esc(r.reason)}</span>
           <span style="font-size:12px;color:${C.muted}">by @${esc(r.reporterLogin)} · ${esc(relative(r.createdAt))}</span>
           ${

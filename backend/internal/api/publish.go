@@ -127,13 +127,16 @@ func sameRepo(a, b string) bool {
 // shortFromModule derives a package short id from a module path: the last path
 // element with a leading "wago-" or "wago_" stripped.
 func shortFromModule(module string) string {
-	short := module
-	if i := strings.LastIndex(short, "/"); i >= 0 {
-		short = short[i+1:]
+	const github = "github.com/"
+	if !strings.HasPrefix(module, github) {
+		return ""
 	}
-	short = strings.TrimPrefix(short, "wago-")
-	short = strings.TrimPrefix(short, "wago_")
-	return short
+	id := strings.TrimPrefix(module, github)
+	parts := strings.Split(id, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return ""
+	}
+	return id
 }
 
 // handlePublish creates or updates a package from a manifest and a release.
@@ -164,6 +167,10 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	short := shortFromModule(req.Manifest.Module)
+	if short == "" {
+		httpx.WriteError(w, http.StatusBadRequest, "manifest.module must be a GitHub owner/repository module path")
+		return
+	}
 	p, existed := a.Store.GetPackage(short)
 	if !existed {
 		p = model.Package{Short: short, CreatedAt: time.Now().UTC().Format(time.RFC3339)}

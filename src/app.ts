@@ -59,7 +59,7 @@ function render(): void {
     enhanceSparkline();
 }
 
-const SITE = "wago plugins";
+const SITE = "Plugins";
 const SITE_ORIGIN = "https://plugins.wago.sh";
 
 // currentMeta derives the tab title + social/canonical metadata for the current
@@ -71,8 +71,8 @@ function currentMeta(): { title: string; description: string; url: string; image
     if (state.screen === "package" && state.pkg) {
         const p = state.pkg;
         return {
-            title: `${p.short} — ${SITE}`,
-            description: p.description || `${p.name} — a plugin on the wago registry.`,
+            title: `${p.short} | ${SITE}`,
+            description: p.description || `${p.short} — a plugin on the wago registry.`,
             url,
             image,
         };
@@ -80,24 +80,24 @@ function currentMeta(): { title: string; description: string; url: string; image
     if (state.screen === "user" && state.viewUser) {
         const u = state.viewUser;
         return {
-            title: `@${u.login} — ${SITE}`,
+            title: `@${u.login} | ${SITE}`,
             description: u.bio || `${u.name || u.login} on the wago plugin registry.`,
             url,
             image: u.avatarUrl || image,
         };
     }
     if (state.screen === "account" && state.user) {
-        return { title: `@${state.user.login} — ${SITE}`, description: "Your wago account.", url, image };
+        return { title: `@${state.user.login} | ${SITE}`, description: "Your wago account.", url, image };
     }
     if (state.screen === "notifications") {
-        return { title: `Notifications — ${SITE}`, description: "Your wago notifications.", url, image };
+        return { title: `Notifications | ${SITE}`, description: "Your wago notifications.", url, image };
     }
     if (state.screen === "search") {
-        const t = state.query ? `${state.query} — search — ${SITE}` : `Search — ${SITE}`;
+        const t = state.query ? `${state.query} | Search | ${SITE}` : `Search | ${SITE}`;
         return { title: t, description: "Search the wago plugin registry.", url, image };
     }
     return {
-        title: `${SITE} — registry`,
+        title: `Home | ${SITE}`,
         description: "The wago plugin registry — host-import bundles, WASI shims, debuggers and codegen backends. Drop-in Go modules for the wago WebAssembly engine.",
         url: `${SITE_ORIGIN}/`,
         image,
@@ -275,10 +275,9 @@ async function route(): Promise<void> {
         showNotifications(false);
         return;
     }
-    // Two segments = a package: /{owner}/{short} (or legacy /p/{short}); a third
-    // segment opens that package's subpackage page: /{owner}/{short}/{id}.
+    // Two segments are the canonical GitHub-relative package ID: /owner/repository.
     if (parts.length >= 2) {
-        await openPackage(parts[1], false);
+        await openPackage(`${parts[0]}/${parts[1]}`, false);
         if (parts.length >= 3) openSub(decodeURIComponent(parts[2]), false);
         return;
     }
@@ -1148,7 +1147,7 @@ function setPkgTab(tab: PkgTab): void {
     }
 }
 
-// Open a subpackage's page (its readme) at /{owner}/{short}/{id}. `push` is
+// Open a subpackage's page (its readme) at /{owner}/{repository}/{id}. `push` is
 // false when arriving via the router (URL already correct).
 function openSub(id: string, push = true): void {
     if (!state.pkg) return;
