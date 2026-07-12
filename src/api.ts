@@ -24,7 +24,7 @@ import { avatarBg, compactNum, initialOf, normalizeUser, relativeDate } from "./
 
 // The static package index ships the catalog taxonomy (stats + categories) and a
 // fallback package list; real per-package metrics come from the backend.
-type RawPackage = Partial<Package>;
+type RawPackage = Partial<Package> & { name?: string; short?: string };
 
 // ── remote helpers ──────────────────────────────────────────────────────────
 
@@ -112,14 +112,15 @@ export function normalizePackage(raw: RawPackage): Package {
     const tags = raw.tags || [];
     const keywords = raw.keywords || raw.tags || [];
     return {
-        name: raw.name || "",
-        short: raw.short || "",
+        id: raw.id || raw.short || "",
+        short: raw.id || raw.short || "",
+        module: raw.id ? `github.com/${raw.id}` : raw.name || "",
         description: raw.description || "",
         category: raw.category || "",
         tags,
         keywords,
         // Precomputed once so realtime search is a plain substring scan per keystroke.
-        search: `${raw.short || ""} ${raw.name || ""} ${raw.description || ""} ${tags.join(" ")} ${keywords.join(" ")}`.toLowerCase(),
+        search: `${raw.id || raw.short || ""} ${raw.description || ""} ${tags.join(" ")} ${keywords.join(" ")}`.toLowerCase(),
         license: raw.license || "",
         repository: raw.repository || "",
         homepage: raw.homepage,
@@ -130,7 +131,7 @@ export function normalizePackage(raw: RawPackage): Package {
         canManage: raw.canManage,
         allowedPublishers: raw.allowedPublishers,
         pendingPublishers: raw.pendingPublishers,
-        dependencies: raw.dependencies,
+        dependencies: (raw.dependencies || []).map((d) => d.replace(/^github\.com\//, "")),
         deprecatedMessage: raw.deprecatedMessage,
         compatibility: raw.compatibility || { engines: {}, platforms: [] },
         capabilities: raw.capabilities || [],

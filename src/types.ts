@@ -104,8 +104,13 @@ export interface Comment {
 }
 
 export interface Package {
-    name: string; // module path, e.g. github.com/wago-org/wasi
+    // Canonical GitHub-relative package identity, e.g. wago-org/wasi.
+    id: string;
+    // Internal compatibility key for existing interaction state. It is populated
+    // from `id` only and is never present in the backend payload.
     short: string;
+    // Technical repository fallback; not a public package name.
+    module: string;
     description: string;
     category: string;
     tags: string[];
@@ -142,7 +147,7 @@ export interface Package {
     unpackedKB?: number;
 
     // derived / backend-provided
-    search?: string; // precomputed lowercased haystack (short+name+desc+tags+keywords)
+    search?: string; // precomputed lowercased haystack (id+description+tags+keywords)
     starred?: boolean;
     installsWeek: number;
     installsWeekLabel: string;

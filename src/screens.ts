@@ -555,7 +555,7 @@ export function filterPackages(s: AppState): Package[] {
             // that didn't go through normalizePackage.
             const hay =
                 p.search ??
-                `${p.short} ${p.name} ${p.description} ${p.tags.join(" ")} ${(p.keywords || []).join(" ")}`.toLowerCase();
+                `${p.id} ${p.description} ${p.tags.join(" ")} ${(p.keywords || []).join(" ")}`.toLowerCase();
             if (!hay.includes(q)) return false;
         }
         return true;
@@ -1016,7 +1016,7 @@ function commentBody(s: AppState, c: Comment): string {
 
 // dependentsOf returns registry packages that declare p as a dependency.
 function dependentsOf(s: AppState, p: Package): Package[] {
-    const target = (p.name || "").toLowerCase();
+    const target = p.id.toLowerCase();
     if (!target) return [];
     return (s.registry?.packages || []).filter(
         (x) => x.short !== p.short && (x.dependencies || []).some((d) => d.toLowerCase() === target),
@@ -1040,7 +1040,7 @@ function dependentsTab(s: AppState): string {
 // depRow renders one dependency: a card link when it is a registry package, else
 // the bare module path with a source link.
 function depRow(s: AppState, module: string): string {
-    const pkg = (s.registry?.packages || []).find((x) => (x.name || "").toLowerCase() === module.toLowerCase());
+        const pkg = (s.registry?.packages || []).find((x) => x.id.toLowerCase() === module.replace(/^github\.com\//, "").toLowerCase());
     if (pkg) return pkgLinkRow(pkg);
     const gh = /^github\.com\//.test(module) ? `https://${module}` : "";
     return `<div style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
@@ -1054,7 +1054,7 @@ function pkgLinkRow(p: Package): string {
     return `<a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
       <div style="min-width:0">
         <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.text}">${esc(p.short)}</div>
-        <div style="font-size:12.5px;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description || p.name)}</div>
+        <div style="font-size:12.5px;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description || p.id)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">★ ${(p.stars || 0).toLocaleString()}</div>
     </a>`;

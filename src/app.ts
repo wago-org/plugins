@@ -679,7 +679,7 @@ function enrichReadme(): void {
     // Prefer the repository URL, but fall back to the module path itself — a Go
     // import path like "github.com/wago-org/wasi" already names the GitHub repo,
     // so the README resolves even when `repository` wasn't recorded.
-    const repo = github.parseRepo(p.repository) || github.parseRepo(p.name);
+    const repo = github.parseRepo(p.repository) || github.parseRepo(p.module);
     if (!repo) {
         settle();
         return;
@@ -700,7 +700,7 @@ function enrichReadme(): void {
 function enrichContributors(): void {
     const p = state.pkg;
     if (!p) return;
-    const repo = github.parseRepo(p.repository) || github.parseRepo(p.name);
+    const repo = github.parseRepo(p.repository) || github.parseRepo(p.module);
     if (!repo) return;
     void github.fetchContributors(repo.owner, repo.repo).then((list) => {
         if (state.pkg !== p || !list.length) return;
@@ -736,7 +736,7 @@ function enrichCatalogStars(): void {
     const packages = state.registry?.packages;
     if (!packages) return;
     for (const p of packages) {
-        const repo = github.parseRepo(p.repository) || github.parseRepo(p.name);
+        const repo = github.parseRepo(p.repository) || github.parseRepo(p.module);
         if (!repo) continue;
         const cached = github.starsFor(repo.owner, repo.repo);
         if (cached != null) {

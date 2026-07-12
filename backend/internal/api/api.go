@@ -247,6 +247,12 @@ func (a *App) decoratePackage(p model.Package, viewerID string) map[string]any {
 	raw, _ := json.Marshal(p)
 	var m map[string]any
 	_ = json.Unmarshal(raw, &m)
+	// The public registry identity is the GitHub-relative canonical ID. Keep the
+	// legacy storage fields private: records are keyed by this same value after
+	// the catalog reset/re-publish, but clients must not depend on aliases.
+	delete(m, "name")
+	delete(m, "short")
+	m["id"] = p.Short
 
 	latest := p.LatestVersion()
 	m["version"] = latest.Version
