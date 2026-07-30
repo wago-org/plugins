@@ -564,17 +564,6 @@ export async function loadInstalls(pkg: Package, days = 365): Promise<InstallsRe
     }
 }
 
-// Record an install (e.g. when the install command is copied).
-export async function recordInstall(pkg: Package): Promise<void> {
-    try {
-        await apiSend(`/api/packages/${pkg.short}/installs`, "POST", {
-            version: pkg.latestVersion,
-        });
-    } catch {
-        /* best-effort */
-    }
-}
-
 // Human "last publish" from the package's latest version.
 export function lastPublish(pkg: Package): string {
     return pkg.updatedAt ? relativeDate(pkg.updatedAt) : "—";

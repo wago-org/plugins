@@ -1824,17 +1824,6 @@ function wireEvents(): void {
         const copyBtn = target.closest<HTMLElement>("[data-copy]");
         if (copyBtn) {
             void copyFrom(copyBtn);
-            // Copying the install command counts as an install.
-            if (copyBtn.getAttribute("data-act") === "copy-install" && state.pkg) {
-                void api.recordInstall(state.pkg).then(() =>
-                    api.loadInstalls(state.pkg!).then((r) => {
-                        if (state.screen === "package") {
-                            state.installSeries = r.series;
-                            render();
-                        }
-                    }),
-                );
-            }
             return;
         }
         const actEl = target.closest<HTMLElement>("[data-act]");
