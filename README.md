@@ -17,6 +17,11 @@ still runs entirely from the static package index, faking sign-in, stars and
 reviews in the browser so the whole UI is explorable. Point it at a live backend
 and those become real and shared.
 
+The production build also prerenders complete catalog, package, and author
+content for clients that do not execute JavaScript. It publishes `/llms.txt`,
+`/llms-full.txt`, `/data/catalog.json`, Schema.org JSON-LD, `robots.txt`, and a
+package-aware sitemap from the same live API response used for the page files.
+
 ## Identity: GitHub only
 
 There are no passwords anywhere. Sign-in is GitHub OAuth; the backend holds the
@@ -30,6 +35,7 @@ index.html            # SPA shell — mounts #app, loads the module bundle
 data/
   packages.json       # the package index (drives both frontend and backend)
 src/                  # TypeScript source
+  head.ts             #   external runtime configuration loaded before the SPA
   main.ts             #   boot
   app.ts              #   render loop, hash router, event delegation
   screens.ts          #   pure screen render functions (home/search/package/auth/account)
@@ -39,6 +45,7 @@ src/                  # TypeScript source
   config.ts           #   where the backend lives (window.WAGO_CONFIG override)
   copy.ts             #   copy-to-clipboard buttons
 assets/css/tokens.css # base + palette (dark-only "sparkle" theme)
+assets/css/crawler.css # build-time crawler/no-JS catalog styling
 assets/js/            # compiled output (git-ignored)
 backend/              # the Go service — see backend/README.md
 CNAME                 # plugins.wago.sh

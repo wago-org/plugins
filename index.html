@@ -29,6 +29,15 @@
             content="Extend your runtime. One import away. Browse and publish plugins for the wago WebAssembly engine."
         />
         <meta name="twitter:image" content="https://plugins.wago.sh/assets/wago-logo.png" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": "wago plugins",
+                "url": "https://plugins.wago.sh/",
+                "description": "Browse plugins for the wago WebAssembly engine."
+            }
+        </script>
         <!-- prerender:seo:end -->
         <meta name="theme-color" content="#1a1547" />
 
@@ -43,32 +52,28 @@
             rel="stylesheet"
         />
         <link rel="stylesheet" href="assets/css/tokens.css" />
-
-        <script>
-            // Where the Go backend lives.
-            //   • Production (plugins.wago.sh) → the deployed backend at api.plugins.wago.sh.
-            //   • Local dev (localhost) → apiBase stays unset so the frontend targets
-            //     http://localhost:8787, falling back to demo mode if it's not up.
-            window.WAGO_CONFIG = {
-                apiBase:
-                    location.hostname === "localhost" || location.hostname === "127.0.0.1"
-                        ? undefined
-                        : "https://api.plugins.wago.sh",
-            };
-        </script>
+        <link rel="stylesheet" href="assets/css/crawler.css" />
+        <link rel="alternate" type="text/plain" href="/llms.txt" title="wago plugin registry summary for language models" />
+        <link rel="alternate" type="application/json" href="/data/catalog.json" title="wago plugin catalog data" />
+        <script src="assets/js/head.js"></script>
     </head>
     <body>
-        <div id="app"></div>
-        <noscript>
-            <div style="max-width: 640px; margin: 80px auto; padding: 0 24px; text-align: center; color: #b3a6e0">
-                <h1 style="color: #f3effd">wago plugins</h1>
-                <p>
-                    This registry is an interactive app and needs JavaScript. Browse the
-                    plugins directly on
-                    <a href="https://github.com/wago-org" style="color: #c3a8ff">GitHub</a>.
+        <div id="app">
+            <!-- prerender:content:start -->
+            <main class="crawler">
+                <a class="crawler__brand" href="/">
+                    <img src="/assets/wago-logo.png" alt="" />
+                    <span>wago plugins</span>
+                </a>
+                <h1>Extend your runtime.</h1>
+                <p class="crawler__lead">
+                    Browse and publish Go plugins for the wago WebAssembly engine.
+                    The build replaces this fallback with the current registry catalog.
                 </p>
-            </div>
-        </noscript>
+                <p><a href="https://github.com/wago-org">Browse wago on GitHub →</a></p>
+            </main>
+            <!-- prerender:content:end -->
+        </div>
         <script type="module" src="assets/js/main.js"></script>
     </body>
 </html>

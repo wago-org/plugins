@@ -1,5 +1,5 @@
-// Runtime configuration. The API base can be overridden by a small inline
-// script in index.html (window.WAGO_CONFIG); otherwise we guess from the host:
+// Runtime configuration. The API base can be overridden by src/head.ts through
+// window.WAGO_CONFIG; otherwise we guess from the host:
 // localhost during development, the production API host in the wild.
 //
 // The site is designed to work *without* a backend at all (GitHub Pages only):

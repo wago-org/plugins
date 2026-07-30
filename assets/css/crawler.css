@@ -1,0 +1,124 @@
+/* Build-time crawler content. The SPA replaces #app when JavaScript runs, but
+   direct readers and no-JS clients get a complete, readable registry. */
+
+.crawler {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 56px 24px 88px;
+}
+
+.crawler__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 42px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.crawler__brand img {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+}
+
+.crawler h1 {
+    margin: 0 0 14px;
+    color: var(--text);
+    font-size: clamp(34px, 7vw, 64px);
+    line-height: 1;
+}
+
+.crawler h2 {
+    margin: 48px 0 18px;
+    color: var(--text);
+    font-size: 24px;
+}
+
+.crawler h3 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 18px;
+}
+
+.crawler p,
+.crawler li {
+    color: var(--soft);
+    line-height: 1.65;
+}
+
+.crawler a {
+    color: var(--lilac);
+}
+
+.crawler__lead {
+    max-width: 760px;
+    margin: 0 0 18px;
+    font-size: 18px;
+}
+
+.crawler__meta {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+}
+
+.crawler__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-top: 24px;
+}
+
+.crawler__card {
+    display: block;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+    color: inherit;
+    text-decoration: none;
+}
+
+.crawler__card:hover {
+    border-color: var(--line-2);
+}
+
+.crawler__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 14px;
+}
+
+.crawler__tag {
+    padding: 3px 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+}
+
+.crawler__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    padding: 0;
+    list-style: none;
+}
+
+.crawler__facts li {
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg-deep);
+}
+
+.crawler__facts strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text);
+}
