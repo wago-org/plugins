@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -105,6 +106,21 @@ func normalizeDeps(list []string, self string) []string {
 	return out
 }
 
+// pluginDependencies converts v0 manifest plugin keys into canonical Go module
+// paths for the registry dependency graph.
+func pluginDependencies(plugins map[string]string, self string) []string {
+	list := make([]string, 0, len(plugins))
+	for id := range plugins {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			list = append(list, "github.com/"+id)
+		}
+	}
+	list = normalizeDeps(list, self)
+	sort.Strings(list)
+	return list
+}
+
 // containsFold reports whether list contains s, case-insensitively.
 func containsFold(list []string, s string) bool {
 	for _, v := range list {
@@ -151,10 +167,8 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	// wago/v1 is the canonical manifest schema the CLI now emits; wago-plugin/v1
-	// remains accepted for manifests published before the rename.
-	if req.Manifest.Schema != "wago/v1" && req.Manifest.Schema != "wago-plugin/v1" {
-		httpx.WriteError(w, http.StatusBadRequest, `manifest.schema must be "wago/v1"`)
+	if req.Manifest.Schema != "https://wago.sh/v0/schema.json" {
+		httpx.WriteError(w, http.StatusBadRequest, `manifest.$schema must be "https://wago.sh/v0/schema.json"`)
 		return
 	}
 	if strings.TrimSpace(req.Manifest.Module) == "" {
@@ -216,9 +230,10 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	if len(req.Manifest.Keywords) > 0 {
 		p.Keywords = unionStrings(p.Keywords, req.Manifest.Keywords)
 	}
-	// Dependencies are replaced from the manifest each publish (the manifest is
-	// the source of truth), trimmed + deduped, with self-references dropped.
-	p.Dependencies = normalizeDeps(req.Manifest.Dependencies, req.Manifest.Module)
+	// Dependencies are replaced from the v0 plugin map each publish. The map is
+	// the source of truth; keys are canonicalized, sorted, and self references
+	// are dropped.
+	p.Dependencies = pluginDependencies(req.Manifest.Plugins, req.Manifest.Module)
 	if len(req.Manifest.Authors) > 0 {
 		p.Authors = parseAuthors(req.Manifest.Authors)
 	} else if len(p.Authors) == 0 {

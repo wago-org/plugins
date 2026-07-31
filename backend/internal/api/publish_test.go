@@ -1,6 +1,7 @@
 package api
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/wago-org/registry-backend/internal/model"
@@ -71,5 +72,19 @@ func TestApplyRelease(t *testing.T) {
 	}
 	if placeholders != 1 || reals != 2 {
 		t.Fatalf("want 1 placeholder + 2 real versions, got %+v", vs)
+	}
+}
+
+func TestPluginDependencies(t *testing.T) {
+	got := pluginDependencies(map[string]string{
+		"wago-org/workers": "^0.0.0",
+		"JairusSW/wide":    "0.0.0",
+	}, "github.com/JairusSW/pool")
+	want := []string{
+		"github.com/JairusSW/wide",
+		"github.com/wago-org/workers",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("pluginDependencies() = %v, want %v", got, want)
 	}
 }

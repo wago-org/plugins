@@ -9,16 +9,18 @@ import (
 // A self-similar wago.json: module-level engines/platforms are inherited by the
 // subpackage that omits them; the subpackage with its own engines keeps them.
 const sampleManifest = `{
-  "schema": "wago-plugin/v1",
+  "$schema": "https://wago.sh/v0/schema.json",
   "module": "github.com/wago-org/wasi",
+  "version": "0.0.0",
   "license": "Apache-2.0",
   "engines": { "wago": ">=0.1.0", "tinygo": "*" },
   "platforms": ["linux/amd64"],
+  "plugins": { "wago-org/workers": "^0.0.0" },
   "subpackages": [
     {
       "module": "github.com/wago-org/wasi/p1",
       "name": "WASI preview 1",
-      "version": "1.0.0",
+      "version": "0.0.0",
       "description": "preview1",
       "stability": "stable",
       "keywords": ["wasi", "wasi-preview1"]
@@ -38,8 +40,11 @@ func TestManifestResolvedSubpackages(t *testing.T) {
 	if err := json.Unmarshal([]byte(sampleManifest), &m); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if m.Schema != "wago-plugin/v1" || m.Module != "github.com/wago-org/wasi" {
+	if m.Schema != "https://wago.sh/v0/schema.json" || m.Module != "github.com/wago-org/wasi" {
 		t.Fatalf("top-level fields lost: schema=%q module=%q", m.Schema, m.Module)
+	}
+	if m.Plugins["wago-org/workers"] != "^0.0.0" {
+		t.Fatalf("plugin constraints lost: %+v", m.Plugins)
 	}
 	subs := m.ResolvedSubpackages()
 	if len(subs) != 2 {
@@ -74,10 +79,20 @@ func TestManifestResolvedSubpackages(t *testing.T) {
 	}
 }
 
+func TestManifestDoesNotAcceptNamedSchemaGenerations(t *testing.T) {
+	var m Manifest
+	if err := json.Unmarshal([]byte(`{"schema":"wago/v1","module":"github.com/acme/plugin"}`), &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m.Schema != "" {
+		t.Fatalf("legacy schema field populated rolling schema: %q", m.Schema)
+	}
+}
+
 // A "./path/wago.json" string subpackage must be rejected (the server can't
 // resolve it; the publisher inlines it first).
 func TestManifestRejectsPathRef(t *testing.T) {
-	const withPathRef = `{"schema":"wago-plugin/v1","module":"m","subpackages":["./p2/wago.json"]}`
+	const withPathRef = `{"$schema":"https://wago.sh/v0/schema.json","module":"m","subpackages":["./p2/wago.json"]}`
 	var m Manifest
 	err := json.Unmarshal([]byte(withPathRef), &m)
 	if err == nil {

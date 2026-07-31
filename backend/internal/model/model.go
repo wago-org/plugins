@@ -1,7 +1,7 @@
 // Package model holds the domain types for the wago plugins registry: the stored
-// records (users, packages, reviews, comments) and the wago-plugin/v1 manifest
-// that a package's release publishes. These types are the single source of truth
-// for the JSON shapes the store persists and the API serves.
+// records (users, packages, reviews, comments) and the rolling v0 manifest that
+// a package's release publishes. These types are the single source of truth for
+// the JSON shapes the store persists and the API serves.
 package model
 
 import (
@@ -45,34 +45,32 @@ type Subpackage struct {
 	Readme      string        `json:"readme,omitempty"`
 }
 
-// Manifest is a wago-plugin/v1 document: a Go module that ships one or more
-// subpackages. It is what a publisher POSTs to /api/publish.
-// Manifest is the wago.json a package publishes (schema "wago-plugin/v1"). It is
-// self-similar: the top-level module and every subpackage share the same config
-// shape (ManifestPkg). Provenance and engines set at the module level are
-// inherited by subpackages that omit them.
+// Manifest is the rolling v0 wago.json a package publishes. It is self-similar:
+// the top-level module and every subpackage share the same config shape
+// (ManifestPkg). Provenance and engines set at the module level are inherited by
+// subpackages that omit them.
 type Manifest struct {
 	ManifestPkg
-	Schema string `json:"schema"`
+	Schema string `json:"$schema"`
 }
 
 // ManifestPkg is one node of a self-similar wago.json — the module itself or a
 // subpackage. Identity is the module path; there is no separate id.
 type ManifestPkg struct {
-	Module       string            `json:"module"`
-	Name         string            `json:"name,omitempty"`
-	Version      string            `json:"version,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	Stability    Stability         `json:"stability,omitempty"`
-	License      string            `json:"license,omitempty"`
-	Homepage     string            `json:"homepage,omitempty"`
-	Repository   string            `json:"repository,omitempty"`
-	Authors      []string          `json:"authors,omitempty"`
-	Keywords     []string          `json:"keywords,omitempty"`
-	Engines      map[string]string `json:"engines,omitempty"`
-	Platforms    []string          `json:"platforms,omitempty"`
-	Dependencies []string          `json:"dependencies,omitempty"` // module paths this package depends on
-	Subpackages  []ManifestSub     `json:"subpackages,omitempty"`
+	Module      string            `json:"module"`
+	Name        string            `json:"name,omitempty"`
+	Version     string            `json:"version,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Stability   Stability         `json:"stability,omitempty"`
+	License     string            `json:"license,omitempty"`
+	Homepage    string            `json:"homepage,omitempty"`
+	Repository  string            `json:"repository,omitempty"`
+	Authors     []string          `json:"authors,omitempty"`
+	Keywords    []string          `json:"keywords,omitempty"`
+	Engines     map[string]string `json:"engines,omitempty"`
+	Platforms   []string          `json:"platforms,omitempty"`
+	Plugins     map[string]string `json:"plugins,omitempty"` // GitHub-relative plugin IDs to version constraints
+	Subpackages []ManifestSub     `json:"subpackages,omitempty"`
 }
 
 // ManifestSub is a subpackages[] element. It may be written inline as an object or

@@ -29,7 +29,7 @@ later.
 backend/
   cmd/registry/main.go          # wiring: load config, open+seed store, build router, serve
   internal/config/config.go     # env -> Config
-  internal/model/model.go       # domain types + the wago-plugin/v1 Manifest
+  internal/model/model.go       # domain types + the rolling v0 Manifest
   internal/store/store.go       # Store interface
   internal/store/jsonstore.go   # JSON-file implementation (RWMutex, atomic write)
   internal/store/seed.go        # import data/packages.json into an empty store
@@ -174,10 +174,13 @@ system.
 
 ```json
 {
-  "manifest": { "schema": "wago-plugin/v1", "module": "github.com/acme/wago-redis",
-                "extensions": [ { "import": "...", "id": "...", "stability": "stable",
-                                  "tags": ["..."], "compatibility": { "engines": {...} } } ] },
-  "version": "v1.2.0", "commit": "abc123def", "notes": "...",
+  "manifest": {
+    "$schema": "https://wago.sh/v0/schema.json",
+    "module": "github.com/acme/wago-redis",
+    "version": "0.0.0",
+    "plugins": { "wago-org/workers": "^0.0.0" }
+  },
+  "version": "0.0.0", "commit": "abc123def", "notes": "...",
   "unpackedKB": 184, "category": "host-imports", "tags": []
 }
 ```
@@ -194,7 +197,8 @@ Behavior:
 - The caller's login is added to `contributors` (deduped).
 - The version is appended, marked `latest` (unsetting the previous latest), and
   `updatedAt` is bumped. A **duplicate** version string is **409**.
-- **400** if `manifest.schema` is neither `"wago/v1"` (canonical) nor `"wago-plugin/v1"` (legacy), or `module` / `version` is empty.
+- **400** if `manifest.$schema` is not
+  `"https://wago.sh/v0/schema.json"`, or `module` / `version` is empty.
 
 ## Session cookie
 
