@@ -20,28 +20,29 @@ import { avatarFor } from "./github.js";
 import { COPY_ICON } from "./copy.js";
 
 const C = {
-    bg: "#1a1547",
-    deep: "#161043",
-    panel: "#221c52",
-    panel2: "#25205a",
-    line: "#2c2566",
-    line2: "#443a8c",
-    text: "#f3effd",
-    dim: "#b9add9",
-    soft: "#b3a6e0",
-    muted: "#7d72b0",
-    faint: "#6f64a8",
-    lilac: "#c3a8ff",
-    green: "#74e0ad",
-    pink: "#ff9ec4",
-    violet: "#5a3ff0",
+    deep: "var(--bg-deep)",
+    panel: "var(--panel)",
+    panel2: "var(--panel-2)",
+    line: "var(--line)",
+    line2: "var(--line-2)",
+    text: "var(--text)",
+    dim: "var(--dim)",
+    soft: "var(--soft)",
+    muted: "var(--muted)",
+    faint: "var(--faint)",
+    lilac: "var(--lilac)",
+    green: "var(--green)",
+    pink: "var(--pink)",
+    violet: "var(--violet)",
+    ink: "var(--ink)",
+    nav: "var(--nav-bg)",
 };
 
 // stability → accent colour trio (text, bg, border)
 const STABILITY: Record<Stability, { color: string; bg: string; border: string }> = {
-    stable: { color: "#74e0ad", bg: "#16322c", border: "#2e5a48" },
-    experimental: { color: "#c3a8ff", bg: "#221c52", border: "#443a8c" },
-    deprecated: { color: "#ffb4d2", bg: "#3a1f34", border: "#6b3453" },
+    stable: { color: "var(--green)", bg: "var(--stable-bg)", border: "var(--stable-border)" },
+    experimental: { color: "var(--lilac)", bg: "var(--panel)", border: "var(--line-2)" },
+    deprecated: { color: "var(--warning-text)", bg: "var(--warning-bg)", border: "var(--warning-border)" },
 };
 
 function relative(iso: string): string {
@@ -90,7 +91,7 @@ function emailsSection(s: AppState): string {
                     ? `
               <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
                 <input value="${escAttr(code)}" data-act="email-code" data-arg="${escAttr(e.address)}" placeholder="6-digit code" maxlength="6" inputmode="numeric" style="width:130px;background:${C.deep};border:1px solid ${C.line};border-radius:8px;padding:8px 11px;color:${C.text};font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:2px;outline:none;box-sizing:border-box" />
-                <button data-act="verify-email" data-arg="${escAttr(e.address)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:8px 14px;border-radius:8px;cursor:pointer">Verify</button>
+                <button data-act="verify-email" data-arg="${escAttr(e.address)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:8px 14px;border-radius:8px;cursor:pointer">Verify</button>
                 <span style="font-size:11.5px;color:${C.muted}">Enter the 6-digit code we emailed you.</span>
               </div>`
                     : "";
@@ -124,7 +125,7 @@ function emailsSection(s: AppState): string {
           ${rows || `<div style="font-size:13.5px;color:${C.muted};margin-bottom:12px">No emails on file yet.</div>`}
           <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
             <input value="${escAttr(s.emailDraft)}" data-act="email-draft" placeholder="you@example.com" style="flex:1;min-width:180px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:11px 14px;color:${C.text};font-size:14px;outline:none;box-sizing:border-box" />
-            <button data-act="add-email" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:11px 18px;border-radius:9px;cursor:pointer">Add email</button>
+            <button data-act="add-email" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:11px 18px;border-radius:9px;cursor:pointer">Add email</button>
           </div>
         </div>`;
 }
@@ -135,7 +136,7 @@ export function nav(s: AppState): string {
     const homeColor = s.screen === "home" ? C.text : C.dim;
     const right = s.user ? profileMenu(s) : signInButton();
     return `
-<nav class="r-nav" style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:20px;padding:14px 0;background:rgba(26,21,71,0.9);backdrop-filter:blur(12px);border-bottom:1px solid ${C.line}">
+<nav class="r-nav" style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:20px;padding:14px 0;background:${C.nav};backdrop-filter:blur(12px);border-bottom:1px solid ${C.line}">
   <a href="/" data-act="home" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0">
     <img src="/assets/wago-logo.png" alt="wago" style="width:34px;height:34px;border-radius:9px;flex-shrink:0" />
     <span style="font-weight:800;font-size:20px;letter-spacing:-0.5px">wago</span>
@@ -148,7 +149,11 @@ export function nav(s: AppState): string {
   </div>
   <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
     <a href="/" data-act="home" class="r-navbrowse" style="text-decoration:none;font-size:14px;font-weight:600;color:${homeColor}">Browse</a>
-    <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none;padding:9px 16px;border-radius:9px;background:${C.lilac};color:${C.bg};font-weight:700;font-size:14px">Publish ↗</a>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme" title="Toggle color theme">
+      <svg class="theme-toggle__icon theme-toggle__icon--moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.5A8.5 8.5 0 0 1 8.5 3.6 8.5 8.5 0 1 0 20.4 15.5Z" /></svg>
+      <svg class="theme-toggle__icon theme-toggle__icon--sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" class="r-navpublish" style="text-decoration:none;padding:9px 16px;border-radius:9px;background:${C.lilac};color:${C.ink};font-weight:700;font-size:14px">Publish ↗</a>
     ${notifBell(s)}
     ${right}
   </div>
@@ -166,7 +171,7 @@ function notifBell(s: AppState): string {
     const pending = (s.notifications || []).filter((n) => n.status === "pending").length;
     const active = s.screen === "notifications";
     const badge = pending
-        ? `<span style="position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:100px;background:${C.pink};color:${C.bg};font-size:10px;font-weight:800;line-height:16px;text-align:center">${pending > 9 ? "9+" : pending}</span>`
+        ? `<span style="position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:100px;background:${C.pink};color:${C.ink};font-size:10px;font-weight:800;line-height:16px;text-align:center">${pending > 9 ? "9+" : pending}</span>`
         : "";
     const bell = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
     return `<a href="/notifications" data-act="notifications" title="Notifications" aria-label="Notifications" style="position:relative;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;border:1px solid ${active ? C.lilac : C.line2};color:${active ? C.lilac : C.text};text-decoration:none">${bell}${badge}</a>`;
@@ -203,7 +208,7 @@ function notificationCard(n: Notification): string {
     let action: string;
     if (n.status === "pending") {
         action = `<div style="display:flex;gap:8px;flex-shrink:0">
-          <button data-act="notif-accept" data-arg="${escAttr(n.id)}" style="font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:${C.bg};background:${C.lilac};border:none;padding:8px 16px;border-radius:9px;cursor:pointer">Accept</button>
+          <button data-act="notif-accept" data-arg="${escAttr(n.id)}" style="font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:${C.ink};background:${C.lilac};border:none;padding:8px 16px;border-radius:9px;cursor:pointer">Accept</button>
           <button data-act="notif-decline" data-arg="${escAttr(n.id)}" style="font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:${C.soft};background:transparent;border:1px solid ${C.line2};padding:8px 16px;border-radius:9px;cursor:pointer">Decline</button>
         </div>`;
     } else {
@@ -231,7 +236,7 @@ function avatarSpan(
 ): string {
     if (avatarUrl)
         return `<img src="${escAttr(avatarUrl)}" alt="${escAttr(name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0" />`;
-    return `<span title="${escAttr(name)}" style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:${font}px;color:${C.bg};flex-shrink:0">${esc(initial)}</span>`;
+    return `<span title="${escAttr(name)}" style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:${font}px;color:${C.ink};flex-shrink:0">${esc(initial)}</span>`;
 }
 
 // Like avatarSpan, but prefers a real GitHub profile picture: an explicit
@@ -254,7 +259,7 @@ function ghAvatarSpan(
 // preview mode the caller swaps the textarea for a rendered `.md` block.
 function writePreviewTabs(preview: boolean, writeAct: string, previewAct: string): string {
     const btn = (label: string, on: boolean, act: string): string =>
-        `<button data-act="${act}" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:${on ? C.bg : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:5px 12px;border-radius:6px;cursor:pointer">${label}</button>`;
+        `<button data-act="${act}" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:${on ? C.ink : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:5px 12px;border-radius:6px;cursor:pointer">${label}</button>`;
     return `<div style="display:inline-flex;gap:2px;background:${C.panel};border:1px solid ${C.line};border-radius:8px;padding:3px;margin-bottom:10px">${btn("Write", !preview, writeAct)}${btn("Preview", preview, previewAct)}</div>`;
 }
 
@@ -371,7 +376,7 @@ function profileMenu(s: AppState): string {
     const menuItems = acctNavItems(u)
         .map(
             (m) => `
-        <a href="#/account" data-act="acct" data-arg="${m.tab}" style="display:flex;align-items:center;gap:11px;text-decoration:none;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:600;color:#d8cef5">
+        <a href="#/account" data-act="acct" data-arg="${m.tab}" style="display:flex;align-items:center;gap:11px;text-decoration:none;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:600;color:${C.dim}">
           <span style="width:18px;text-align:center;color:${C.lilac}">${m.icon}</span> ${m.label}
         </a>`,
         )
@@ -503,7 +508,7 @@ export function homeScreen(s: AppState): string {
     const cats = reg.categories
         .map(
             (c) =>
-                `<button data-act="cat" data-arg="${escAttr(c.key)}" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#b9add9;background:${C.panel};border:1px solid ${C.line};padding:7px 14px;border-radius:100px;cursor:pointer">${esc(c.label)}</button>`,
+                `<button data-act="cat" data-arg="${escAttr(c.key)}" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.dim};background:${C.panel};border:1px solid ${C.line};padding:7px 14px;border-radius:100px;cursor:pointer">${esc(c.label)}</button>`,
         )
         .join("");
     const featured = reg.packages.slice(0, 6).map((p) => featuredCard(p)).join("");
@@ -523,7 +528,7 @@ export function homeScreen(s: AppState): string {
     <div style="display:flex;align-items:center;gap:11px;background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:14px 18px;max-width:600px;margin:0 auto 18px">
       <span style="color:${C.muted};font-size:20px">⌕</span>
       <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search ${esc(totalLabel)} plugins…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:${C.text};font-size:17px" />
-      <button data-act="search" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Search</button>
+      <button data-act="search" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Search</button>
     </div>
     <div style="display:flex;justify-content:center;gap:9px;flex-wrap:wrap">${cats}</div>
   </section>
@@ -620,7 +625,7 @@ export function searchScreen(s: AppState): string {
             const on = !!s.cats[f.key];
             return `
           <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:${C.soft};cursor:pointer">
-            <span data-act="filter-cat" data-arg="${escAttr(f.key)}" style="width:15px;height:15px;border-radius:4px;border:1px solid ${on ? C.lilac : C.line2};background:${on ? C.lilac : "transparent"};display:inline-flex;align-items:center;justify-content:center;color:${C.bg};font-size:10px;flex-shrink:0">${on ? "✓" : ""}</span>
+            <span data-act="filter-cat" data-arg="${escAttr(f.key)}" style="width:15px;height:15px;border-radius:4px;border:1px solid ${on ? C.lilac : C.line2};background:${on ? C.lilac : "transparent"};display:inline-flex;align-items:center;justify-content:center;color:${C.ink};font-size:10px;flex-shrink:0">${on ? "✓" : ""}</span>
             <span style="flex:1" data-act="filter-cat" data-arg="${escAttr(f.key)}">${esc(f.label)}</span>
             <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${f.count}</span>
           </label>`;
@@ -629,7 +634,7 @@ export function searchScreen(s: AppState): string {
     const sorts = (["popular", "recent"] as const)
         .map((k) => {
             const on = s.sort === k;
-            return `<button data-act="sort" data-arg="${k}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${on ? C.bg : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:6px 12px;border-radius:6px;cursor:pointer">${k}</button>`;
+            return `<button data-act="sort" data-arg="${k}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${on ? C.ink : C.dim};background:${on ? C.lilac : "transparent"};border:none;padding:6px 12px;border-radius:6px;cursor:pointer">${k}</button>`;
         })
         .join("");
     return `
@@ -669,7 +674,7 @@ export function searchScreen(s: AppState): string {
 
 function searchRow(p: Package): string {
     const verified = p.verified
-        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${C.bg};background:${C.green};padding:2px 8px;border-radius:100px">✦ verified</span>`
+        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${C.ink};background:${C.green};padding:2px 8px;border-radius:100px">✦ verified</span>`
         : "";
     return `
         <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:block;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:20px 22px">
@@ -735,7 +740,7 @@ export function packageScreen(s: AppState): string {
         ? tabEl("settings", "⚙ Settings", subTab ? "" : "margin-left:auto")
         : "";
 
-    const badges = `${p.verified ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.green};padding:5px 11px;border-radius:100px">✦ verified</span>` : ""}<span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};border:1px solid ${C.line2};padding:5px 11px;border-radius:100px">${esc(p.version)}</span>`;
+    const badges = `${p.verified ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.ink};background:${C.green};padding:5px 11px;border-radius:100px">✦ verified</span>` : ""}<span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};border:1px solid ${C.line2};padding:5px 11px;border-radius:100px">${esc(p.version)}</span>`;
 
     // bookmark (save-for-later, per-browser) + star, to the right of the badges
     const bm = s.bookmarked;
@@ -805,11 +810,11 @@ function starConsentModal(s: AppState): string {
         <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 8px">Stars here are real GitHub stars. Let wago star the repository for you and it happens in one click — we only ask for permission to star public repos on your behalf, nothing else.</p>
         <p style="font-size:12.5px;line-height:1.55;color:${C.muted};margin:0 0 18px">Prefer to do it yourself? We can just open the repo on GitHub so you can hit ★ there.</p>
         <label data-act="star-dontask" style="display:flex;align-items:center;gap:9px;font-size:13px;color:${C.soft};cursor:pointer;margin-bottom:18px">
-          <span style="width:17px;height:17px;border-radius:5px;border:1px solid ${check ? C.lilac : C.line2};background:${check ? C.lilac : "transparent"};display:inline-flex;align-items:center;justify-content:center;color:${C.bg};font-size:11px;flex-shrink:0">${check ? "✓" : ""}</span>
+          <span style="width:17px;height:17px;border-radius:5px;border:1px solid ${check ? C.lilac : C.line2};background:${check ? C.lilac : "transparent"};display:inline-flex;align-items:center;justify-content:center;color:${C.ink};font-size:11px;flex-shrink:0">${check ? "✓" : ""}</span>
           Don't ask again on this browser
         </label>
         <div style="display:flex;flex-direction:column;gap:9px">
-          <button data-act="star-allow" style="width:100%;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.bg};background:${C.lilac};border:none;padding:12px;border-radius:11px;cursor:pointer">Allow wago to star for me</button>
+          <button data-act="star-allow" style="width:100%;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.ink};background:${C.lilac};border:none;padding:12px;border-radius:11px;cursor:pointer">Allow wago to star for me</button>
           <button data-act="star-just-github" style="width:100%;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:12px;border-radius:11px;cursor:pointer">Just open GitHub ↗</button>
           <button data-act="star-cancel" style="width:100%;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12.5px;color:${C.muted};background:transparent;border:none;padding:6px;border-radius:8px;cursor:pointer">Cancel</button>
         </div>
@@ -977,7 +982,7 @@ function composerOpenBlock(s: AppState, activeRating: number): string {
     const stars = [1, 2, 3, 4, 5]
         .map(
             (n) =>
-                `<span class="pick-star" data-n="${n}" data-act="rate" data-arg="${n}" style="color:${n <= activeRating ? C.lilac : "#4b407e"};cursor:pointer">${n <= activeRating ? "★" : "☆"}</span>`,
+                `<span class="pick-star" data-n="${n}" data-act="rate" data-arg="${n}" style="color:${n <= activeRating ? C.lilac : C.line2};cursor:pointer">${n <= activeRating ? "★" : "☆"}</span>`,
         )
         .join("");
     const editor = s.reviewPreview
@@ -991,7 +996,7 @@ function composerOpenBlock(s: AppState, activeRating: number): string {
     ${editor}
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
       <button data-act="composer-close" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:10px 18px;border-radius:9px;cursor:pointer">Cancel</button>
-      <button data-act="review-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:10px 20px;border-radius:9px;cursor:pointer">${s.reviewEditing ? "Update review" : "Post review"}</button>
+      <button data-act="review-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:10px 20px;border-radius:9px;cursor:pointer">${s.reviewEditing ? "Update review" : "Post review"}</button>
     </div>
   </div>`;
 }
@@ -1013,8 +1018,8 @@ function reviewCard(r: Review): string {
               </div>
               <div style="margin:0 0 12px">${mdBlock(r.body)}</div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <button data-act="vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${upOn ? C.bg : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▲ ${r.score ?? 0}</button>
-                <button data-act="vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${downOn ? C.bg : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▼</button>
+                <button data-act="vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${upOn ? C.ink : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▲ ${r.score ?? 0}</button>
+                <button data-act="vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${downOn ? C.ink : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:5px 11px;border-radius:8px;cursor:pointer">▼</button>
                 ${
                     r.mine
                         ? `<span style="flex:1"></span>
@@ -1038,7 +1043,7 @@ function commentsTab(s: AppState): string {
       ${writePreviewTabs(s.commentPreview, "comment-write", "comment-preview")}
       ${commentEditor}
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
-        <button data-act="comment-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Comment</button>
+        <button data-act="comment-submit" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Comment</button>
       </div>
     </div>`
         : signInPrompt("join the discussion");
@@ -1078,7 +1083,7 @@ function commentCard(s: AppState, c: Comment, replies: Comment[]): string {
           ${replyEditor}
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
             <button data-act="reply-cancel" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:7px 14px;border-radius:8px;cursor:pointer">Cancel</button>
-            <button data-act="reply-submit" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Reply</button>
+            <button data-act="reply-submit" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Reply</button>
           </div>
         </div>`
             : "";
@@ -1102,8 +1107,8 @@ function commentBody(s: AppState, c: Comment): string {
     const upOn = v === "up";
     const downOn = v === "down";
     const votes = `
-        <button data-act="comment-vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${upOn ? C.bg : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▲ ${c.score ?? 0}</button>
-        <button data-act="comment-vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${downOn ? C.bg : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▼</button>`;
+        <button data-act="comment-vote-up" data-arg="${id}" style="display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${upOn ? C.ink : C.dim};background:${upOn ? C.green : "transparent"};border:1px solid ${upOn ? C.green : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▲ ${c.score ?? 0}</button>
+        <button data-act="comment-vote-down" data-arg="${id}" style="display:inline-flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${downOn ? C.ink : C.dim};background:${downOn ? C.pink : "transparent"};border:1px solid ${downOn ? C.pink : C.line};padding:4px 9px;border-radius:7px;cursor:pointer">▼</button>`;
     // "hide" soft-archives a comment; the author or a moderator (package/org
     // owner) may do it. Moderators who aren't the author see it as a moderation
     // action; restoring is "unhide".
@@ -1140,7 +1145,7 @@ function commentBody(s: AppState, c: Comment): string {
         <textarea data-act="comment-edit-draft" placeholder="Edit your comment… Markdown supported." style="width:100%;min-height:64px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:10px 12px;color:${C.text};font-size:13.5px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(s.commentEditDraft)}</textarea>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
           <button data-act="comment-edit-cancel" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:${C.dim};background:transparent;border:1px solid ${C.line};padding:7px 14px;border-radius:8px;cursor:pointer">Cancel</button>
-          <button data-act="comment-edit-save" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Save</button>
+          <button data-act="comment-edit-save" data-arg="${escAttr(c.id)}" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:7px 15px;border-radius:8px;cursor:pointer">Save</button>
         </div>`;
     }
     if (c.archived) {
@@ -1226,7 +1231,7 @@ function versionsTab(s: AppState): string {
 
 function versionRow(p: Package, v: VersionRow, first: boolean): string {
     const latest = v.latest
-        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:${C.bg};background:${C.green};padding:2px 7px;border-radius:100px">latest</span>`
+        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:${C.ink};background:${C.green};padding:2px 7px;border-radius:100px">latest</span>`
         : "";
     const deprecated = v.deprecated
         ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:#ffb4d2;background:#3a1f34;border:1px solid #6b3453;padding:2px 7px;border-radius:100px">deprecated</span>`
@@ -1353,7 +1358,7 @@ function pkgSidebar(s: AppState): string {
       <div style="padding:16px 0 4px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:9px">Install</div>
         <div data-copy="${escAttr(installCmd)}" data-act="copy-install" class="install-box" role="button" tabindex="0" title="Click to copy" style="background:${C.deep};border:1px solid ${C.line};border-radius:10px;display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">
-          <span style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12px;color:#e7e0ff;overflow-x:auto;white-space:nowrap"><span style="color:#6f64a8">$</span> ${esc(installCmd)}</span>
+          <span style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--code-text);overflow-x:auto;white-space:nowrap"><span style="color:${C.faint}">$</span> ${esc(installCmd)}</span>
           <span data-copy-label class="install-copy" aria-hidden="true" style="flex-shrink:0;display:inline-flex;width:14px;height:14px">${COPY_ICON}</span>
         </div>
       </div>
@@ -1389,7 +1394,7 @@ function pkgSidebar(s: AppState): string {
       ${kwSection}
       ${
           p.repository
-              ? `<a href="${escAttr(p.repository)}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;margin-top:14px;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};padding:11px;border-radius:10px">Repository ↗</a>`
+              ? `<a href="${escAttr(p.repository)}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;margin-top:14px;margin-bottom:6px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};padding:11px;border-radius:10px">Repository ↗</a>`
               : ""
       }
       ${reportLink(s)}
@@ -1484,7 +1489,7 @@ function publishersBody(s: AppState): string {
       <div data-pub-search style="position:relative;max-width:360px">
         <div style="display:flex;gap:6px">
           <input data-act="publisher-draft" value="${escAttr(s.publisherDraft)}" placeholder="search GitHub username" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:9px;padding:8px 10px" />
-          <button data-act="publisher-add" style="flex-shrink:0;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:${C.bg};background:${C.lilac};border:none;padding:8px 14px;border-radius:9px;cursor:pointer">Invite</button>
+          <button data-act="publisher-add" style="flex-shrink:0;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:${C.ink};background:${C.lilac};border:none;padding:8px 14px;border-radius:9px;cursor:pointer">Invite</button>
         </div>
         <div class="pub-dropdown" style="position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30">${publisherDropdownHtml(s)}</div>
       </div>
@@ -1612,7 +1617,7 @@ function reportModal(s: AppState): string {
      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px">${opts}</div>
      <textarea data-act="report-detail" placeholder="Add details (optional)" style="width:100%;box-sizing:border-box;min-height:70px;resize:vertical;font-family:'Outfit',sans-serif;font-size:13.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:11px;padding:11px;margin-bottom:16px">${esc(s.reportDetail)}</textarea>
      <div style="display:flex;flex-direction:column;gap:9px">
-       <button data-act="report-submit" ${canSend ? "" : "disabled"} style="width:100%;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.bg};background:${canSend ? C.lilac : C.line2};border:none;padding:12px;border-radius:11px;cursor:${canSend ? "pointer" : "not-allowed"}">${s.reportSending ? "Sending…" : "Send report"}</button>
+       <button data-act="report-submit" ${canSend ? "" : "disabled"} style="width:100%;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:${C.ink};background:${canSend ? C.lilac : C.line2};border:none;padding:12px;border-radius:11px;cursor:${canSend ? "pointer" : "not-allowed"}">${s.reportSending ? "Sending…" : "Send report"}</button>
        <button data-act="report-cancel" style="width:100%;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12.5px;color:${C.muted};background:transparent;border:none;padding:6px;border-radius:8px;cursor:pointer">Cancel</button>
      </div>`,
     );
@@ -1739,12 +1744,12 @@ function acctOrganizations(s: AppState): string {
     const card = (o: import("./types.js").OrgRef): string => {
         const current = s.activeOrg.toLowerCase() === o.login.toLowerCase();
         const roleBadge = o.canActAs
-            ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${C.bg};background:${C.lilac};padding:2px 8px;border-radius:100px">${esc(o.role)}</span>`
+            ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${C.ink};background:${C.lilac};padding:2px 8px;border-radius:100px">${esc(o.role)}</span>`
             : `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${C.soft};background:${C.deep};border:1px solid ${C.line2};padding:2px 8px;border-radius:100px">${esc(o.role)}</span>`;
         const action = current
             ? `<button data-act="back-to-personal" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:8px 14px;border-radius:8px;cursor:pointer">Leave</button>`
             : o.canActAs
-              ? `<button data-act="act-as-org" data-arg="${escAttr(o.login)}" style="font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:8px 15px;border-radius:8px;cursor:pointer">Switch to</button>`
+              ? `<button data-act="act-as-org" data-arg="${escAttr(o.login)}" style="font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:8px 15px;border-radius:8px;cursor:pointer">Switch to</button>`
               : `<span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">member</span>`;
         return `
         <div style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${current ? C.lilac : C.line};border-radius:14px;padding:16px 18px">
@@ -1788,9 +1793,9 @@ function ownedPlugins(s: AppState): (Package & { role: string })[] {
 }
 
 const ROLE_STYLE: Record<string, { color: string; bg: string; border: string }> = {
-    owner: { color: "#1a1547", bg: "#74e0ad", border: "#74e0ad" },
-    author: { color: "#1a1547", bg: "#c3a8ff", border: "#c3a8ff" },
-    maintainer: { color: "#c3a8ff", bg: "#221c52", border: "#443a8c" },
+    owner: { color: "var(--ink)", bg: "var(--green)", border: "var(--green)" },
+    author: { color: "var(--ink)", bg: "var(--lilac)", border: "var(--lilac)" },
+    maintainer: { color: "var(--lilac)", bg: "var(--panel)", border: "var(--line-2)" },
 };
 
 function acctProfile(s: AppState): string {
@@ -1881,7 +1886,7 @@ function acctPlugins(s: AppState): string {
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
           <h1 style="font-weight:800;font-size:24px;letter-spacing:-0.6px;margin:0">Your plugins <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:${C.muted};font-weight:500">${owned.length}</span></h1>
-          <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};padding:9px 16px;border-radius:9px">Publish a plugin ↗</a>
+          <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};padding:9px 16px;border-radius:9px">Publish a plugin ↗</a>
         </div>
         <div style="border:1px solid ${C.line};border-radius:14px;overflow:hidden">${rows}</div>
       </div>`;
@@ -1908,7 +1913,7 @@ function acctReports(s: AppState): string {
           ${
               r.resolved
                   ? `<span style="margin-left:auto;font-size:11.5px;color:${C.green}">✓ resolved${r.resolvedBy ? ` by @${esc(r.resolvedBy)}` : ""}</span>`
-                  : `<button data-act="resolve-report" data-arg="${escAttr(r.id)}" style="margin-left:auto;font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;color:${C.bg};background:${C.lilac};border:none;padding:6px 13px;border-radius:8px;cursor:pointer">Resolve</button>`
+                  : `<button data-act="resolve-report" data-arg="${escAttr(r.id)}" style="margin-left:auto;font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;color:${C.ink};background:${C.lilac};border:none;padding:6px 13px;border-radius:8px;cursor:pointer">Resolve</button>`
           }
         </div>
         ${r.detail ? `<p style="font-size:13px;line-height:1.5;color:${C.soft};margin:0">${esc(r.detail)}</p>` : ""}
@@ -2039,7 +2044,7 @@ export function userScreen(s: AppState): string {
 
     // The "toggle": claimed wago member vs a profile generated from public data.
     const badge = vu.claimed
-        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${C.bg};background:${C.green};padding:4px 11px;border-radius:100px">✦ wago member</span>`
+        ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${C.ink};background:${C.green};padding:4px 11px;border-radius:100px">✦ wago member</span>`
         : `<span title="This person hasn't signed in to wago yet" style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${C.muted};background:${C.deep};border:1px solid ${C.line2};padding:4px 11px;border-radius:100px">generated profile</span>`;
 
     const meta = [
@@ -2155,7 +2160,7 @@ function acctSettings(s: AppState): string {
             <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.5px;color:${C.muted};text-transform:uppercase;margin-bottom:7px">Bio</label>
             <textarea data-act="bio" style="width:100%;min-height:70px;background:${C.deep};border:1px solid ${C.line};border-radius:10px;padding:12px 14px;color:${C.text};font-size:14px;font-family:'Outfit',sans-serif;resize:vertical;outline:none;box-sizing:border-box">${esc(bio)}</textarea>
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:16px"><button data-act="save-profile" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:10px 18px;border-radius:9px;cursor:pointer">Save changes</button></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px"><button data-act="save-profile" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:10px 18px;border-radius:9px;cursor:pointer">Save changes</button></div>
         </div>
 
         ${u.isOrg ? orgSettingsNote(u) : personalSettings(s)}
@@ -2185,7 +2190,7 @@ function personalSettings(s: AppState): string {
             const on = s.settings[t.k as keyof AppState["settings"]];
             return `
             <label data-act="setting" data-arg="${t.k}" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};cursor:pointer">
-              <span style="font-size:14px;color:#d8cef5">${esc(t.l)}</span>
+              <span style="font-size:14px;color:${C.dim}">${esc(t.l)}</span>
               <span style="width:34px;height:19px;border-radius:100px;background:${on ? C.green : C.line};position:relative;flex-shrink:0;transition:background .2s"><span style="position:absolute;top:2px;left:${on ? "17px" : "2px"};width:15px;height:15px;border-radius:50%;background:#fff;transition:left .2s"></span></span>
             </label>`;
         })
@@ -2197,7 +2202,7 @@ function personalSettings(s: AppState): string {
             ${githubIcon(20)}
             <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:${C.text}">GitHub</div><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">@${esc(u.login)} · your only sign-in method</div></div>
           </div>
-          <button data-act="sync-github" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.bg};background:${C.lilac};border:none;padding:13px;border-radius:11px;cursor:pointer">⟳ Sync from GitHub</button>
+          <button data-act="sync-github" style="width:100%;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:13px;border-radius:11px;cursor:pointer">⟳ Sync from GitHub</button>
           <div style="font-size:12px;color:${C.muted};margin-top:10px;text-align:center">Refreshes your profile, avatar and email from GitHub.</div>
         </div>
 

@@ -1,6 +1,6 @@
 /* Base + design tokens for the wago plugins registry. The screens render with
    inline styles (ported from the design), so this file only owns the document
-   shell: fonts, background, scrollbars, selection. Dark-only by design. */
+   shell: fonts, background, scrollbars, selection, and color themes. */
 
 :root {
     color-scheme: dark;
@@ -26,9 +26,94 @@
     --pink: #ff9ec4;
     --violet: #5a3ff0;
     --ink: #1a1547;
+    --nav-bg: rgba(26, 21, 71, 0.9);
+    --code-text: #e7e0ff;
+    --stable-bg: #16322c;
+    --stable-border: #2e5a48;
+    --warning-text: #ffb4d2;
+    --warning-bg: #3a1f34;
+    --warning-border: #6b3453;
+    --syntax-orange: #f0b072;
+    --syntax-blue: #8ec9ff;
 
     --sans: "Outfit", system-ui, -apple-system, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    --bg: #f7f4ff;
+    --bg-deep: #eee8fb;
+    --panel: #ffffff;
+    --panel-2: #ebe4fa;
+    --line: #e2d8f3;
+    --line-2: #c7b6e3;
+    --text: #211a3d;
+    --dim: #514767;
+    --soft: #665b7d;
+    --muted: #746787;
+    --faint: #69577f;
+    --lilac: #6f45c6;
+    --green: #147550;
+    --pink: #b52b64;
+    --violet: #5932c4;
+    --ink: #ffffff;
+    --nav-bg: rgba(247, 244, 255, 0.9);
+    --code-text: #30264e;
+    --stable-bg: #e6f5ee;
+    --stable-border: #8bcbb0;
+    --warning-text: #8f234f;
+    --warning-bg: #fbeaf2;
+    --warning-border: #df9bb9;
+    --syntax-orange: #8a5200;
+    --syntax-blue: #17669b;
+}
+
+.theme-toggle {
+    appearance: none;
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    color: var(--text);
+    background: var(--panel);
+    cursor: pointer;
+}
+.theme-toggle:hover {
+    color: var(--lilac);
+    border-color: var(--lilac);
+    background: var(--panel-2);
+}
+.theme-toggle:focus-visible {
+    outline: 2px solid var(--lilac);
+    outline-offset: 2px;
+}
+.theme-toggle__icon {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.theme-toggle__icon--moon {
+    fill: currentColor;
+    stroke: none;
+}
+.theme-toggle__icon--sun {
+    display: none;
+}
+:root[data-theme="light"] .theme-toggle__icon--moon {
+    display: none;
+}
+:root[data-theme="light"] .theme-toggle__icon--sun {
+    display: block;
 }
 
 * {
@@ -231,7 +316,7 @@ button {
     border: none;
     padding: 0;
     font-size: 12.5px;
-    color: #e7e0ff;
+    color: var(--code-text);
 }
 .md blockquote {
     margin: 0 0 10px;
@@ -437,7 +522,7 @@ button {
 .readme .md .token.boolean,
 .readme .md .token.constant,
 .readme .md .token.symbol {
-    color: #f0b072;
+    color: var(--syntax-orange);
 }
 .readme .md .token.function,
 .readme .md .token.class-name,
@@ -449,7 +534,7 @@ button {
 .readme .md .token.attr-name,
 .readme .md .token.variable,
 .readme .md .token.symbol {
-    color: #8ec9ff;
+    color: var(--syntax-blue);
 }
 .readme .md .token.operator,
 .readme .md .token.entity {
@@ -516,6 +601,9 @@ button {
     /* Tighter page gutters reclaim horizontal space on phones. */
     #app {
         padding: 0 14px;
+    }
+    .r-navpublish {
+        display: none !important;
     }
     /* Everything single-column at phone width. */
     .r-grid3,
