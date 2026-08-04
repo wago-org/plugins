@@ -117,7 +117,7 @@ function currentMeta(): { title: string; description: string; url: string; image
     }
     return {
         title: `Home | ${SITE}`,
-        description: "The wago plugin registry — host-import bundles, WASI shims, debuggers and codegen backends. Drop-in Go modules for the wago WebAssembly engine.",
+        description: "A wonderfully quick, compact, and extensible WebAssembly runtime for Go",
         url: `${SITE_ORIGIN}/`,
         image,
     };

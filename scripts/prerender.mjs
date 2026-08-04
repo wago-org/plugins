@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 
 const DIST = "dist";
 const ORIGIN = "https://plugins.wago.sh";
+const TAGLINE = "A wonderfully quick, compact, and extensible WebAssembly runtime for Go";
 const API = "https://api.plugins.wago.sh/api/packages";
 const LOGO = `${ORIGIN}/assets/wago-logo.png`;
 const SEO_RE = /<!-- prerender:seo:start[\s\S]*?<!-- prerender:seo:end -->/;
@@ -172,8 +173,7 @@ function homeContent(packages, generated) {
                 ${brand()}
                 <h1>Extend your runtime.</h1>
                 <p class="crawler__lead">
-                    Browse Go plugins for the wago WebAssembly engine: host integrations,
-                    runtime services, compiler extensions, workers, and reusable execution infrastructure.
+                    ${TAGLINE}
                 </p>
                 <p class="crawler__meta">${packages.length} published plugins · catalog generated ${esc(generated)}</p>
                 <div class="crawler__grid">
@@ -249,7 +249,7 @@ function homeJsonLd(packages, generated) {
                 "@id": `${ORIGIN}/#registry`,
                 name: "wago plugins",
                 url: `${ORIGIN}/`,
-                description: "The plugin registry for the wago WebAssembly engine.",
+                description: TAGLINE,
                 dateModified: generated,
                 mainEntity: { "@id": `${ORIGIN}/#catalog` },
             },
@@ -320,7 +320,7 @@ function llmsSummary(packages, generated) {
     const categories = unique(packages.map((pkg) => pkg.category));
     return `# wago plugins
 
-> The official registry for Go plugins that extend the wago WebAssembly engine.
+> ${TAGLINE}
 
 Canonical site: ${ORIGIN}/
 Registry API: ${API}
@@ -435,9 +435,8 @@ async function main() {
     const home = page(
         template,
         {
-            title: "wago plugins — registry for the wago WebAssembly engine",
-            description:
-                "Browse Go plugins, runtime services, host integrations, and compiler extensions for the wago WebAssembly engine.",
+            title: `wago plugins — ${TAGLINE}`,
+            description: TAGLINE,
             url: `${ORIGIN}/`,
             jsonLd: homeJsonLd(packages, generated),
         },

@@ -468,7 +468,7 @@ export function footer(s: AppState): string {
   <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px;padding:28px 0">
     <div style="display:flex;align-items:center;gap:12px">
       <img src="/assets/wago-logo.png" alt="" style="width:34px;height:34px;border-radius:9px" />
-      <span style="font-size:13px;color:${C.muted}">wago plugins · ${esc(total)} indexed · Apache 2.0</span>
+      <span style="font-size:13px;color:${C.muted}">A wonderfully quick, compact, and extensible WebAssembly runtime for Go · ${esc(total)} plugins indexed · Apache 2.0</span>
     </div>
     <div style="display:flex;gap:22px;font-size:14px;font-weight:600;color:${C.lilac}">
       <a href="https://github.com/wago-org/wago" target="_blank" rel="noopener" style="text-decoration:none">GitHub</a>
@@ -524,7 +524,7 @@ export function homeScreen(s: AppState): string {
   <section class="r-hero" style="text-align:center;padding:72px 0 40px">
     <div style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.lilac};background:${C.panel};border:1px solid ${C.line};padding:6px 14px;border-radius:100px;margin-bottom:24px">✦ the wago plugin registry</div>
     <h1 style="font-weight:900;font-size:clamp(30px,5.5vw,58px);line-height:1.04;letter-spacing:-2px;margin:0 0 16px">Extend your runtime.<br><span style="color:${C.lilac}">One import away.</span></h1>
-    <p style="font-size:clamp(15px,2.6vw,18px);line-height:1.6;color:${C.soft};margin:0 auto 34px;max-width:560px">Host-import bundles, WASI shims, debuggers and codegen backends — drop-in Go modules for the wago engine.</p>
+    <p style="font-size:clamp(15px,2.6vw,18px);line-height:1.6;color:${C.soft};margin:0 auto 34px;max-width:560px">A wonderfully quick, compact, and extensible WebAssembly runtime for Go</p>
     <div style="display:flex;align-items:center;gap:11px;background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:14px 18px;max-width:600px;margin:0 auto 18px">
       <span style="color:${C.muted};font-size:20px">⌕</span>
       <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search ${esc(totalLabel)} plugins…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:${C.text};font-size:17px" />

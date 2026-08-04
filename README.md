@@ -1,8 +1,9 @@
 # plugins.wago.sh — the wago plugin registry
 
-Browse and publish plugins for [**wago**](https://github.com/wago-org/wago), the
-pure-Go WebAssembly engine. Host-import bundles, WASI shims, debuggers and
-codegen backends — drop-in Go modules for the runtime.
+Browse and publish plugins for [**wago**](https://github.com/wago-org/wago):
+A wonderfully quick, compact, and extensible WebAssembly runtime for Go.
+Host-import bundles, WASI shims, debuggers and codegen backends are drop-in Go
+modules for the runtime.
 
 Two pieces:
 

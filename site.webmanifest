@@ -1,7 +1,7 @@
 {
     "name": "wago packages — the wago package registry",
     "short_name": "wago packages",
-    "description": "Browse and publish packages for the wago WebAssembly engine.",
+    "description": "A wonderfully quick, compact, and extensible WebAssembly runtime for Go",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#1a1547",
