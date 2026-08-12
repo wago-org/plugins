@@ -232,8 +232,10 @@ func TestCatalogRequiresExactCompleteManifestProviderSet(t *testing.T) {
 	catalog[0].DefinitionDigest = rootDigest
 	metrics := validDefinition("github.com/wago-org/workers/metrics", "0.1.0")
 	metrics.Name, metrics.Description = "Metrics", "Worker metrics"
-	metrics.Stability = ""
-	metrics.Compatibility = Compatibility{}
+	metrics.Stability = manifest.Package.Stability
+	metrics.Compatibility = Compatibility{
+		Engines: manifest.Package.Engines, Platforms: append([]string(nil), manifest.Package.Platforms...),
+	}
 	metrics.Provenance.Homepage = manifest.Package.Homepage
 	metricsDigest, err := DefinitionDigest(metrics)
 	if err != nil {

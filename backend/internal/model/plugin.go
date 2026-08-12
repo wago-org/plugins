@@ -360,7 +360,20 @@ func ValidateProviderCatalog(p PackageManifest, version string, providers []Prov
 		Engines: p.Engines, Platforms: p.Platforms,
 	}}
 	for _, sub := range p.Subpackages {
-		expected[sub.Module] = sub
+		metadata := PackageSub{
+			Module: sub.Module, Name: sub.Name, Description: sub.Description,
+			Stability: p.Stability, Engines: p.Engines, Platforms: p.Platforms,
+		}
+		if sub.Stability != "" {
+			metadata.Stability = sub.Stability
+		}
+		if sub.Engines != nil {
+			metadata.Engines = sub.Engines
+		}
+		if sub.Platforms != nil {
+			metadata.Platforms = sub.Platforms
+		}
+		expected[sub.Module] = metadata
 	}
 	authorNames := make([]string, len(p.Authors))
 	for i, author := range p.Authors {
