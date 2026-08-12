@@ -13,7 +13,7 @@ import (
 func TestRecordInstallByModulePathUpdatesCounts(t *testing.T) {
 	app := newSessionApp(t)
 	if err := app.Store.UpsertPackage(model.Package{
-		Short: "wago-org/wasi",
+		Short: "github.com/wago-org/wasi",
 		Name:  "github.com/wago-org/wasi",
 	}); err != nil {
 		t.Fatalf("upsert package: %v", err)

@@ -38,19 +38,19 @@ func (a *App) handleListPackages(w http.ResponseWriter, r *http.Request) {
 }
 
 // trimForList drops the heavy, detail-only fields from a decorated package so the
-// browse/search list payload stays lean (the /api/packages/{short} detail call
-// carries the full record). Mutates and returns m.
+// browse/search list payload stays lean (the /api/packages/{canonicalID} detail
+// call carries the full record). Mutates and returns m.
 func trimForList(m map[string]any) map[string]any {
 	delete(m, "versions")
-	delete(m, "subpackages")
 	delete(m, "readme")
+	delete(m, "subpackages")
 	return m
 }
 
-// handleGetPackage returns a single package (matched by short or module name).
+// handleGetPackage returns a single package by its exact canonical module ID.
 func (a *App) handleGetPackage(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	// Fast path: anonymous detail by short is cached.
+	// Fast path: anonymous detail by canonical ID is cached.
 	if a.viewerID(r) == "" {
 		if b := a.cachedDetail(name); b != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -74,8 +74,18 @@ func (a *App) handleVersions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vs := append([]model.Version(nil), p.Versions...)
-	sort.SliceStable(vs, func(i, j int) bool { return vs[i].PublishedAt > vs[j].PublishedAt })
+	sortVersionsNewest(vs)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"versions": vs})
+}
+
+func sortVersionsNewest(versions []model.Version) {
+	sort.SliceStable(versions, func(i, j int) bool {
+		comparison, err := model.CompareVersions(versions[i].Version, versions[j].Version)
+		if err == nil && comparison != 0 {
+			return comparison > 0
+		}
+		return versions[i].PublishedAt > versions[j].PublishedAt
+	})
 }
 
 // filterPackages applies the query, category, tag, stability, engine and

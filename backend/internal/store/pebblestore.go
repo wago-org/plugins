@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -24,38 +25,44 @@ import (
 // that changed (an O(1) LSM write), so write throughput no longer scales with the
 // size of the dataset.
 //
-// Key layout (one record per key; '/' separates segments, none of which contain
-// '/'):
+// Key layout (one record per key):
 //
 //	u/<userID>              -> model.User
-//	p/<short>               -> model.Package
-//	s/<short>/<userID>      -> "" (star marker; presence == starred)
+//	p/<canonicalModule>     -> model.Package
+//	s/<b64(module)>/<b64(userID)> -> "" (star marker; presence == starred)
 //	r/<reviewID>            -> model.Review
 //	v/<reviewID>/<userID>   -> "up"|"down" (vote direction)
 //	c/<commentID>           -> model.Comment
-//	i/<short>/<date>        -> decimal install count for that day
+//	i/<b64(module)>/<b64(date)> -> decimal install count for that day
 //	t/<tokenID>             -> model.APIToken
+//	m/store-schema-version  -> decimal schema version
+//	q/<opaque>              -> quarantinedV0Package
 type PebbleStore struct {
-	mu  sync.RWMutex
-	db  *pebble.DB
-	doc doc
+	mu        sync.RWMutex
+	db        *pebble.DB
+	doc       doc
+	migration *MigrationReport
 }
 
 var _ Store = (*PebbleStore)(nil)
 
 // key prefixes.
 const (
-	kpUser    = 'u'
-	kpPackage = 'p'
-	kpStar    = 's'
-	kpReview  = 'r'
-	kpVote    = 'v'
-	kpComment = 'c'
-	kpInstall = 'i'
-	kpToken   = 't'
-	kpReport  = 'R'
-	kpNotif   = 'N'
+	kpUser       = 'u'
+	kpPackage    = 'p'
+	kpStar       = 's'
+	kpReview     = 'r'
+	kpVote       = 'v'
+	kpComment    = 'c'
+	kpInstall    = 'i'
+	kpToken      = 't'
+	kpReport     = 'R'
+	kpNotif      = 'N'
+	kpMeta       = 'm'
+	kpQuarantine = 'q'
 )
+
+var pebbleSchemaKey = recKey(kpMeta, "store-schema-version")
 
 // OpenPebble opens (creating if needed) a Pebble store at dir and loads the whole
 // dataset into memory.
@@ -65,21 +72,57 @@ func OpenPebble(dir string) (*PebbleStore, error) {
 		return nil, fmt.Errorf("open pebble: %w", err)
 	}
 	s := &PebbleStore{db: db, doc: emptyDoc()}
-	if err := s.loadAll(); err != nil {
+	loaded, err := s.loadAll()
+	if err != nil {
 		_ = db.Close()
 		return nil, err
 	}
+	if s.doc.StoreSchemaVersion > currentStoreSchemaVersion {
+		_ = db.Close()
+		return nil, fmt.Errorf("store schema version %d is newer than supported version %d", s.doc.StoreSchemaVersion, currentStoreSchemaVersion)
+	}
+	if s.doc.StoreSchemaVersion == 0 {
+		migration, err := migrateLegacyDoc(&s.doc, loaded.rawPackages)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("migrate store schema v0 to v1: %w", err)
+		}
+		if err := s.persistLegacyMigration(loaded, migration); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("persist store schema v1: %w", err)
+		}
+		s.migration = migration.report(s.doc)
+	}
 	return s, nil
+}
+
+// StartupMigration reports a migration performed by this OpenPebble call.
+func (s *PebbleStore) StartupMigration() (MigrationReport, bool) {
+	if s.migration == nil {
+		return MigrationReport{}, false
+	}
+	return *s.migration, true
 }
 
 // Close flushes and closes the underlying database.
 func (s *PebbleStore) Close() error { return s.db.Close() }
 
-// loadAll reconstructs the in-memory doc by iterating every key once.
-func (s *PebbleStore) loadAll() error {
+type pebbleLoad struct {
+	rawPackages   map[string]json.RawMessage
+	starBodies    []string
+	installBodies []string
+}
+
+// loadAll reconstructs the in-memory doc by iterating every key once. Package,
+// star, and install keys are decoded only after the schema marker is known.
+func (s *PebbleStore) loadAll() (pebbleLoad, error) {
+	loaded := pebbleLoad{rawPackages: map[string]json.RawMessage{}}
+	d := emptyDoc()
+	d.StoreSchemaVersion = 0
+	installValues := map[string][]byte{}
 	it, err := s.db.NewIter(nil)
 	if err != nil {
-		return err
+		return loaded, err
 	}
 	defer it.Close()
 	for it.First(); it.Valid(); it.Next() {
@@ -93,60 +136,102 @@ func (s *PebbleStore) loadAll() error {
 		case kpUser:
 			var u model.User
 			if json.Unmarshal(v, &u) == nil {
-				s.doc.Users[u.ID] = u
+				d.Users[u.ID] = u
 			}
 		case kpPackage:
 			var p model.Package
-			if json.Unmarshal(v, &p) == nil {
-				s.doc.Packages[p.Short] = p
+			if err := json.Unmarshal(v, &p); err != nil {
+				return loaded, fmt.Errorf("decode package record %q: %w", body, err)
 			}
+			d.Packages[body] = p
+			loaded.rawPackages[body] = append(json.RawMessage(nil), v...)
 		case kpReview:
 			var r model.Review
 			if json.Unmarshal(v, &r) == nil {
-				s.doc.Reviews[r.ID] = r
+				d.Reviews[r.ID] = r
 			}
 		case kpComment:
 			var c model.Comment
 			if json.Unmarshal(v, &c) == nil {
-				s.doc.Comments[c.ID] = c
+				d.Comments[c.ID] = c
 			}
 		case kpToken:
 			var t model.APIToken
 			if json.Unmarshal(v, &t) == nil {
-				s.doc.Tokens[t.ID] = t
+				d.Tokens[t.ID] = t
 			}
 		case kpReport:
 			var r model.Report
 			if json.Unmarshal(v, &r) == nil {
-				s.doc.Reports[r.ID] = r
+				d.Reports[r.ID] = r
 			}
 		case kpNotif:
 			var n model.Notification
 			if json.Unmarshal(v, &n) == nil {
-				s.doc.Notifications[n.ID] = n
+				d.Notifications[n.ID] = n
 			}
 		case kpStar:
-			if short, uid, ok := split2(body); ok {
-				s.doc.Stars[short] = append(s.doc.Stars[short], uid)
-			}
+			loaded.starBodies = append(loaded.starBodies, body)
 		case kpVote:
 			if rid, uid, ok := split2(body); ok {
-				if s.doc.Votes[rid] == nil {
-					s.doc.Votes[rid] = map[string]string{}
+				if d.Votes[rid] == nil {
+					d.Votes[rid] = map[string]string{}
 				}
-				s.doc.Votes[rid][uid] = string(v)
+				d.Votes[rid][uid] = string(v)
 			}
 		case kpInstall:
-			if short, date, ok := split2(body); ok {
-				n, _ := strconv.Atoi(string(v))
-				if s.doc.Installs[short] == nil {
-					s.doc.Installs[short] = map[string]int{}
+			loaded.installBodies = append(loaded.installBodies, body)
+			installValues[body] = v
+		case kpMeta:
+			if k == string(pebbleSchemaKey) {
+				version, err := strconv.Atoi(string(v))
+				if err != nil || version < 0 {
+					return loaded, fmt.Errorf("invalid store schema marker %q", string(v))
 				}
-				s.doc.Installs[short][date] = n
+				d.StoreSchemaVersion = version
 			}
+		case kpQuarantine:
+			var record quarantinedV0Package
+			if err := json.Unmarshal(v, &record); err != nil {
+				return loaded, fmt.Errorf("decode quarantined package %q: %w", body, err)
+			}
+			if record.LegacyKey == "" || len(record.Record) == 0 {
+				return loaded, fmt.Errorf("quarantined package %q is incomplete", body)
+			}
+			d.QuarantinedV0Packages[record.LegacyKey] = record
 		}
 	}
-	return it.Error()
+	if err := it.Error(); err != nil {
+		return loaded, err
+	}
+	if d.StoreSchemaVersion > currentStoreSchemaVersion {
+		s.doc = d
+		return loaded, nil
+	}
+	packageKeys := sortedMapKeys(d.Packages)
+	for _, body := range loaded.starBodies {
+		packageID, userID, ok := decodePackageScopedBody(body, d.StoreSchemaVersion, packageKeys)
+		if !ok {
+			return loaded, fmt.Errorf("invalid star key %q for store schema %d", body, d.StoreSchemaVersion)
+		}
+		d.Stars[packageID] = append(d.Stars[packageID], userID)
+	}
+	for _, body := range loaded.installBodies {
+		packageID, date, ok := decodePackageScopedBody(body, d.StoreSchemaVersion, packageKeys)
+		if !ok {
+			return loaded, fmt.Errorf("invalid install key %q for store schema %d", body, d.StoreSchemaVersion)
+		}
+		n, err := strconv.Atoi(string(installValues[body]))
+		if err != nil || n < 0 {
+			return loaded, fmt.Errorf("invalid install count %q for %q", string(installValues[body]), body)
+		}
+		if d.Installs[packageID] == nil {
+			d.Installs[packageID] = map[string]int{}
+		}
+		d.Installs[packageID][date] = n
+	}
+	s.doc = d
+	return loaded, nil
 }
 
 // split2 splits "a/b" into ("a","b"). Segments never contain '/'.
@@ -156,6 +241,58 @@ func split2(s string) (string, string, bool) {
 		return "", "", false
 	}
 	return s[:i], s[i+1:], true
+}
+
+func packageScopedKey(prefix byte, packageID, leaf string) []byte {
+	packageLen := base64.RawURLEncoding.EncodedLen(len(packageID))
+	leafLen := base64.RawURLEncoding.EncodedLen(len(leaf))
+	key := make([]byte, 2+packageLen+1+leafLen)
+	key[0], key[1] = prefix, '/'
+	base64.RawURLEncoding.Encode(key[2:2+packageLen], []byte(packageID))
+	key[2+packageLen] = '/'
+	base64.RawURLEncoding.Encode(key[3+packageLen:], []byte(leaf))
+	return key
+}
+
+func decodePackageScopedBody(body string, schemaVersion int, legacyPackageKeys []string) (string, string, bool) {
+	if schemaVersion == 0 {
+		// Old keys wrote the unescaped package ID before the final leaf. Match a
+		// known package key rather than splitting at the first slash: both old
+		// owner/repo IDs and v1 canonical module IDs contain slashes.
+		keys := append([]string(nil), legacyPackageKeys...)
+		sort.Slice(keys, func(i, j int) bool {
+			if len(keys[i]) != len(keys[j]) {
+				return len(keys[i]) > len(keys[j])
+			}
+			return keys[i] < keys[j]
+		})
+		for _, packageID := range keys {
+			prefix := packageID + "/"
+			if strings.HasPrefix(body, prefix) {
+				leaf := strings.TrimPrefix(body, prefix)
+				if leaf != "" && !strings.Contains(leaf, "/") {
+					return packageID, leaf, true
+				}
+			}
+		}
+		return "", "", false
+	}
+	if schemaVersion != currentStoreSchemaVersion {
+		return "", "", false
+	}
+	encodedPackage, encodedLeaf, ok := split2(body)
+	if !ok || strings.Contains(encodedLeaf, "/") {
+		return "", "", false
+	}
+	packageID, err := base64.RawURLEncoding.Strict().DecodeString(encodedPackage)
+	if err != nil || len(packageID) == 0 {
+		return "", "", false
+	}
+	leaf, err := base64.RawURLEncoding.Strict().DecodeString(encodedLeaf)
+	if err != nil || len(leaf) == 0 {
+		return "", "", false
+	}
+	return string(packageID), string(leaf), true
 }
 
 func recKey(prefix byte, parts ...string) []byte {
@@ -181,6 +318,88 @@ func (s *PebbleStore) putJSON(key []byte, v any) error {
 }
 
 func (s *PebbleStore) del(key []byte) error { return s.db.Delete(key, pebble.Sync) }
+
+// persistLegacyMigration commits the complete key-layout and record projection
+// in one synced batch. A crash observes either the untouched v0 store or the
+// schema-marked v1 store, never a half-migrated mixture.
+func (s *PebbleStore) persistLegacyMigration(loaded pebbleLoad, migration legacyMigration) error {
+	b := s.db.NewBatch()
+	defer b.Close()
+	putJSON := func(key []byte, value any) error {
+		data, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		return b.Set(key, data, nil)
+	}
+
+	for _, legacyKey := range migration.PackageKeys {
+		if err := b.Delete(recKey(kpPackage, legacyKey), nil); err != nil {
+			return err
+		}
+	}
+	for _, body := range loaded.starBodies {
+		if err := b.Delete(recKey(kpStar, body), nil); err != nil {
+			return err
+		}
+	}
+	for _, body := range loaded.installBodies {
+		if err := b.Delete(recKey(kpInstall, body), nil); err != nil {
+			return err
+		}
+	}
+
+	for _, packageID := range sortedMapKeys(s.doc.Packages) {
+		if err := putJSON(recKey(kpPackage, packageID), s.doc.Packages[packageID]); err != nil {
+			return err
+		}
+	}
+	for _, packageID := range sortedMapKeys(s.doc.Stars) {
+		for _, userID := range s.doc.Stars[packageID] {
+			if err := b.Set(packageScopedKey(kpStar, packageID, userID), nil, nil); err != nil {
+				return err
+			}
+		}
+	}
+	for _, packageID := range sortedMapKeys(s.doc.Installs) {
+		for _, date := range sortedMapKeys(s.doc.Installs[packageID]) {
+			count := strconv.Itoa(s.doc.Installs[packageID][date])
+			if err := b.Set(packageScopedKey(kpInstall, packageID, date), []byte(count), nil); err != nil {
+				return err
+			}
+		}
+	}
+	for _, id := range sortedMapKeys(s.doc.Reviews) {
+		if err := putJSON(recKey(kpReview, id), s.doc.Reviews[id]); err != nil {
+			return err
+		}
+	}
+	for _, id := range sortedMapKeys(s.doc.Comments) {
+		if err := putJSON(recKey(kpComment, id), s.doc.Comments[id]); err != nil {
+			return err
+		}
+	}
+	for _, id := range sortedMapKeys(s.doc.Reports) {
+		if err := putJSON(recKey(kpReport, id), s.doc.Reports[id]); err != nil {
+			return err
+		}
+	}
+	for _, id := range sortedMapKeys(s.doc.Notifications) {
+		if err := putJSON(recKey(kpNotif, id), s.doc.Notifications[id]); err != nil {
+			return err
+		}
+	}
+	for _, legacyKey := range sortedMapKeys(s.doc.QuarantinedV0Packages) {
+		opaque := base64.RawURLEncoding.EncodeToString([]byte(legacyKey))
+		if err := putJSON(recKey(kpQuarantine, opaque), s.doc.QuarantinedV0Packages[legacyKey]); err != nil {
+			return err
+		}
+	}
+	if err := b.Set(pebbleSchemaKey, []byte(strconv.Itoa(currentStoreSchemaVersion)), nil); err != nil {
+		return err
+	}
+	return b.Commit(pebble.Sync)
+}
 
 // --- bulk load (seeding) ---
 
@@ -231,7 +450,7 @@ func (s *PebbleStore) bulkLoad(d doc) error {
 	for short, uids := range d.Stars {
 		s.doc.Stars[short] = append([]string(nil), uids...)
 		for _, uid := range uids {
-			if err := b.Set(recKey(kpStar, short, uid), nil, nil); err != nil {
+			if err := b.Set(packageScopedKey(kpStar, short, uid), nil, nil); err != nil {
 				return err
 			}
 		}
@@ -253,7 +472,7 @@ func (s *PebbleStore) bulkLoad(d doc) error {
 		}
 		for date, n := range days {
 			s.doc.Installs[short][date] = n
-			if err := b.Set(recKey(kpInstall, short, date), []byte(strconv.Itoa(n)), nil); err != nil {
+			if err := b.Set(packageScopedKey(kpInstall, short, date), []byte(strconv.Itoa(n)), nil); err != nil {
 				return err
 			}
 		}
@@ -275,7 +494,7 @@ func (s *PebbleStore) ListPackages() []model.Package {
 	defer s.mu.RUnlock()
 	out := make([]model.Package, 0, len(s.doc.Packages))
 	for _, p := range s.doc.Packages {
-		out = append(out, p)
+		out = append(out, clonePackage(p))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Short < out[j].Short })
 	return out
@@ -284,20 +503,14 @@ func (s *PebbleStore) ListPackages() []model.Package {
 func (s *PebbleStore) GetPackage(id string) (model.Package, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if p, ok := s.doc.Packages[id]; ok {
-		return p, true
-	}
-	for _, p := range s.doc.Packages {
-		if p.Name == id {
-			return p, true
-		}
-	}
-	return model.Package{}, false
+	p, ok := s.doc.Packages[id]
+	return clonePackage(p), ok
 }
 
 func (s *PebbleStore) UpsertPackage(p model.Package) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	p = clonePackage(p)
 	s.doc.Packages[p.Short] = p
 	return s.putJSON(recKey(kpPackage, p.Short), p)
 }
@@ -310,11 +523,11 @@ func (s *PebbleStore) DeletePackage(short string) error {
 	delete(s.doc.Packages, short)
 	_ = b.Delete(recKey(kpPackage, short), nil)
 	for _, uid := range s.doc.Stars[short] {
-		_ = b.Delete(recKey(kpStar, short, uid), nil)
+		_ = b.Delete(packageScopedKey(kpStar, short, uid), nil)
 	}
 	delete(s.doc.Stars, short)
 	for date := range s.doc.Installs[short] {
-		_ = b.Delete(recKey(kpInstall, short, date), nil)
+		_ = b.Delete(packageScopedKey(kpInstall, short, date), nil)
 	}
 	delete(s.doc.Installs, short)
 	for id, r := range s.doc.Reviews {
@@ -509,10 +722,10 @@ func (s *PebbleStore) SetStar(short, userID string, starred bool) (int, error) {
 	var perr error
 	if starred && idx == -1 {
 		cur = append(cur, userID)
-		perr = s.db.Set(recKey(kpStar, short, userID), nil, pebble.Sync)
+		perr = s.db.Set(packageScopedKey(kpStar, short, userID), nil, pebble.Sync)
 	} else if !starred && idx != -1 {
 		cur = append(cur[:idx], cur[idx+1:]...)
-		perr = s.del(recKey(kpStar, short, userID))
+		perr = s.del(packageScopedKey(kpStar, short, userID))
 	}
 	if len(cur) == 0 {
 		delete(s.doc.Stars, short)
@@ -803,7 +1016,7 @@ func (s *PebbleStore) RecordInstall(short, date string) error {
 	// Install counters are high-volume and tolerant of a tiny loss window on a
 	// hard crash, so keep them off the fsync path (NoSync); the WAL still records
 	// them and they flush on the next sync.
-	return s.db.Set(recKey(kpInstall, short, date), []byte(strconv.Itoa(n)), pebble.NoSync)
+	return s.db.Set(packageScopedKey(kpInstall, short, date), []byte(strconv.Itoa(n)), pebble.NoSync)
 }
 
 func (s *PebbleStore) InstallSeries(short string, sinceDays int) []InstallPoint {

@@ -8,6 +8,7 @@
         "build": "tsc && rm -rf dist && mkdir -p dist && cp -r index.html assets data CNAME site.webmanifest dist/ && cp index.html dist/404.html && node scripts/prerender.mjs",
         "dev": "tsc --watch --preserveWatchOutput",
         "typecheck": "tsc --noEmit",
+        "test:routes": "tsc && node scripts/test-v1-routes.mjs",
         "test:wat": "tsc && node scripts/test-wat-highlighting.mjs",
         "serve": "python3 -m http.server 8000"
     },

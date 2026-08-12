@@ -55,6 +55,8 @@ func (a *App) decorateForViewer(p model.Package, u *model.User) map[string]any {
 
 // handleUnpublishPackage removes an entire package (owner only).
 func (a *App) handleUnpublishPackage(w http.ResponseWriter, r *http.Request) {
+	unlockPackage := a.lockPackageWrite(r.PathValue("name"))
+	defer unlockPackage()
 	p, ok := a.ownedPackage(w, r)
 	if !ok {
 		return
@@ -74,6 +76,8 @@ type publishersRequest struct {
 // handleSetPublishers sets the package's allowed publishers — extra GitHub logins
 // (beyond the repo's author/admins) permitted to publish. Owner / admin only.
 func (a *App) handleSetPublishers(w http.ResponseWriter, r *http.Request) {
+	unlockPackage := a.lockPackageWrite(r.PathValue("name"))
+	defer unlockPackage()
 	p, ok := a.ownedPackage(w, r)
 	if !ok {
 		return
@@ -115,6 +119,8 @@ type transferRequest struct {
 // access) applies immediately — they're already the authority. Transferring to
 // any other login creates a pending invite the recipient must accept.
 func (a *App) handleTransfer(w http.ResponseWriter, r *http.Request) {
+	unlockPackage := a.lockPackageWrite(r.PathValue("name"))
+	defer unlockPackage()
 	p, ok := a.ownedPackage(w, r)
 	if !ok {
 		return
@@ -181,6 +187,8 @@ func (a *App) handleTransfer(w http.ResponseWriter, r *http.Request) {
 // handleUnpublishVersion removes a single version. If it was the last version,
 // the whole package is removed. (owner only)
 func (a *App) handleUnpublishVersion(w http.ResponseWriter, r *http.Request) {
+	unlockPackage := a.lockPackageWrite(r.PathValue("name"))
+	defer unlockPackage()
 	p, ok := a.ownedPackage(w, r)
 	if !ok {
 		return
@@ -207,12 +215,13 @@ func (a *App) handleUnpublishVersion(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "unpublished": p.Short})
 		return
 	}
-	// Re-point "latest" at the newest remaining version (last in the slice).
-	for i := range kept {
-		kept[i].Latest = false
-	}
-	kept[len(kept)-1].Latest = true
+	// Re-point "latest" at the greatest remaining semantic version.
+	markLatestVersion(kept)
 	p.Versions = kept
+	latest := p.LatestVersion()
+	p.Dependencies = providerDependencies(latest.Providers)
+	p.UnpackedKB = latest.UnpackedKB
+	p.UpdatedAt = latest.PublishedAt
 	if err := a.Store.UpsertPackage(p); err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "store error")
 		return
@@ -230,6 +239,8 @@ type deprecateRequest struct {
 // handleDeprecate marks a package (or a specific version) deprecated, or undoes
 // it. (owner only)
 func (a *App) handleDeprecate(w http.ResponseWriter, r *http.Request) {
+	unlockPackage := a.lockPackageWrite(r.PathValue("name"))
+	defer unlockPackage()
 	p, ok := a.ownedPackage(w, r)
 	if !ok {
 		return

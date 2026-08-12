@@ -110,9 +110,12 @@ export function relativeDate(iso: string): string {
     return "just now";
 }
 
-// Canonical in-app path is the GitHub-relative registry id: /owner/repository.
-export function pkgPath(p: { short: string }): string {
-    return `/${p.short.split("/").map(encodeURIComponent).join("/")}`;
+// Canonical in-app path is the literal full Plugin ID, for example
+// /github.com/wago-org/wasi. Keeping each slash as a path separator makes links
+// readable while every segment is still encoded independently.
+export function pkgPath(p: { short: string; module?: string }): string {
+    const id = p.module || p.short;
+    return `/${id.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 // Full date label from an ISO timestamp, e.g. "July 7, 2026". Formatted in UTC

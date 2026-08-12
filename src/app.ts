@@ -24,6 +24,7 @@ import {
     userScreen,
 } from "./screens.js";
 import { findPackage, state } from "./state.js";
+import { canonicalPluginIDFromPath } from "./routes.js";
 import type { AcctTab, PkgTab, Sort } from "./state.js";
 import type { Me, ViewUser } from "./types.js";
 import { pkgPath } from "./util.js";
@@ -49,6 +50,8 @@ function screenBody(): string {
             return state.user ? notificationsScreen(state) : authScreen(state);
         case "user":
             return userScreen(state);
+        case "not-found":
+            return `<div style="padding:120px 24px;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8d7fc7;margin-bottom:12px">404</div><h1 style="font-size:30px;margin:0 0 10px">Plugin not found</h1><p style="color:#8d7fc7;margin:0">Plugin URLs use the full canonical ID, for example <code>github.com/wago-org/wasi</code>.</p></div>`;
         default:
             return homeScreen(state);
     }
@@ -256,8 +259,16 @@ function pushUrl(path: string): void {
 // Rebuild screen-level state from the current URL path (used on load and on
 // browser back/forward). Ephemeral filters/tabs intentionally reset here.
 async function route(): Promise<void> {
-    const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    let parts: string[];
+    try {
+        parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    } catch {
+        state.screen = "not-found";
+        render();
+        return;
+    }
     const params = new URLSearchParams(location.search);
+    const canonicalPluginID = canonicalPluginIDFromPath(location.pathname);
 
     if (parts.length === 0) {
         state.screen = "home";
@@ -294,10 +305,16 @@ async function route(): Promise<void> {
         showNotifications(false);
         return;
     }
-    // Two segments are the canonical GitHub-relative package ID: /owner/repository.
+    // The canonical detail URL is the literal full Plugin ID, e.g.
+    // /github.com/wago-org/wasi. Child provider IDs resolve to their source
+    // package too. There is intentionally no short-ID compatibility route.
+    if (canonicalPluginID) {
+        await openPackage(canonicalPluginID, false);
+        return;
+    }
     if (parts.length >= 2) {
-        await openPackage(`${parts[0]}/${parts[1]}`, false);
-        if (parts.length >= 3) openSub(decodeURIComponent(parts[2]), false);
+        state.screen = "not-found";
+        render();
         return;
     }
     // Single segment = your own account (when it's your login), else a user/org.
@@ -487,13 +504,13 @@ async function loadStars(): Promise<void> {
 async function openPackage(short: string, push = true): Promise<void> {
     const pkg = findPackage(state.registry, short);
     if (!pkg) {
-        navHome();
+        state.screen = "not-found";
+        render();
         return;
     }
     state.pkg = pkg;
     state.screen = "package";
     state.pkgTab = "readme";
-    state.sub = null;
     state.readme = null;
     state.ghContributors = null;
     state.readmeBase = null;
@@ -525,11 +542,12 @@ async function openPackage(short: string, push = true): Promise<void> {
     state.starred = !!pkg.starred;
     state.starCount = pkg.stars;
     state.bookmarked = api.isBookmarked(pkg.short);
-    if (push) pushUrl(pkgPath(pkg));
+    const canonicalPath = pkgPath(pkg);
+    if (push) pushUrl(canonicalPath);
     render();
     scrollTop();
     // …then enrich from the backend (or local store) when available.
-    const detail = await api.loadPackage(short, pkg);
+    const detail = await api.loadPackage(pkg.short, pkg);
     if (state.pkg !== pkg) return;
     state.pkg = detail;
     state.starred = !!detail.starred;
@@ -1218,12 +1236,6 @@ async function deleteEmail(address: string): Promise<void> {
 
 function setPkgTab(tab: PkgTab): void {
     state.pkgTab = tab;
-    // Selecting any tab leaves an open subpackage page and returns to the package
-    // URL. A tab switch pushes the package path so the sub URL is left behind.
-    if (state.sub) {
-        state.sub = null;
-        if (state.pkg) pushUrl(pkgPath(state.pkg));
-    }
     render();
     if (tab === "reviews" && state.reviews.length === 0 && !state.reviewsLoading) {
         void refreshReviews();
@@ -1231,18 +1243,6 @@ function setPkgTab(tab: PkgTab): void {
     if (tab === "comments" && state.comments.length === 0 && !state.commentsLoading) {
         void refreshComments();
     }
-}
-
-// Open a subpackage's page (its readme) at /{owner}/{repository}/{id}. `push` is
-// false when arriving via the router (URL already correct).
-function openSub(id: string, push = true): void {
-    if (!state.pkg) return;
-    const e = state.pkg.subpackages.find((x) => x.id === id);
-    if (!e) return;
-    state.sub = id;
-    if (push) pushUrl(`${pkgPath(state.pkg)}/${encodeURIComponent(id)}`);
-    render();
-    scrollTop();
 }
 
 // ── event delegation ─────────────────────────────────────────────────────────
@@ -1575,9 +1575,6 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             break;
         case "tab":
             setPkgTab((arg as PkgTab) || "readme");
-            break;
-        case "open-sub":
-            if (arg) openSub(arg);
             break;
         case "star":
             void toggleStar();
@@ -1917,25 +1914,9 @@ function wireEvents(): void {
     window.addEventListener("popstate", () => void route());
 }
 
-// Translate legacy hash URLs (#/p/x, #/u/x, #/account, …) to the new path form,
-// rewriting the address bar in place so old links keep working.
-function migrateLegacyHash(): void {
-    if (!location.hash.startsWith("#/")) return;
-    const [h, q] = location.hash.slice(1).split("?");
-    const parts = h.split("/").filter(Boolean);
-    let path = "/";
-    if (parts[0] === "p" && parts[1]) path = `/packages/${parts[1]}`;
-    else if (parts[0] === "u" && parts[1]) path = `/${parts[1]}`;
-    else if (parts[0] === "search") path = "/search";
-    else if (parts[0] === "auth") path = "/auth";
-    else if (parts[0] === "account") path = "/account";
-    history.replaceState(null, "", path + (q ? `?${q}` : ""));
-}
-
 // ── boot ─────────────────────────────────────────────────────────────────────
 
 export async function init(): Promise<void> {
-    migrateLegacyHash();
     render(); // "Loading registry…"
     wireEvents();
     // Load the markdown renderer up front; re-render once ready so any already

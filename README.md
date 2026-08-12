@@ -10,8 +10,42 @@ Two pieces:
 - **Frontend** — a static single-page app (plain HTML + CSS + TypeScript, no
   framework, compiled by `tsc`). Hosted on **GitHub Pages** at `plugins.wago.sh`.
 - **Backend** — a small **Go** service ([`backend/`](backend/)) that does GitHub
-  OAuth, sessions, and stores stars / reviews / votes. Standard-library only
-  (with an eye toward a future TinyGo → wago build).
+  OAuth, sessions, immutable provider publication and resolution, plus stars /
+  reviews / votes.
+
+## Plugin contract
+
+The registry implements the breaking Wago v1 plugin contract:
+
+- `wago.json` declares direct plugin ranges and nested package metadata under
+  `package`; it does not duplicate executable provider definitions.
+- Publishers expose one explicit register catalog and commit its canonical
+  `wago.providers.json` snapshot before tagging. The CLI runs only the local
+  catalog as a drift check, then submits the exact tagged artifact's canonical
+  plugin IDs, provider import paths, immutable Plugin Definitions, definition
+  digests, Go module version, and `h1:` source checksum.
+- The registry independently downloads that exact checksum and reads tagged
+  `wago.json` plus `wago.providers.json`; it never executes plugin code.
+- That catalog is a complete one-to-one match for `package.module` plus every
+  declared `package.subpackages` entry, all exported by the source module's
+  single `<module>/register` package.
+- Authority requests use exact, non-inheriting names. Required requests must be
+  granted, though consumers may narrow authority-specific scopes; optional
+  requests may be omitted.
+- The registry rejects unknown v1 fields, unknown authorities, invalid scopes,
+  open configuration schemas, dependency cycles, incompatible diamond
+  constraints, and invalid contract cardinality before publishing.
+- Every published version is immutable. Candidate resolution is semantic-version
+  ordered and paginated so lockfile solvers can inspect the complete graph.
+
+The browser shows the exact authority names, modes, reasons, and bounded scopes
+from the latest published providers instead of the old coarse capability chips.
+See [the backend contract](backend/README.md#publish-flow) for request and response
+shapes.
+
+Package detail URLs use the literal full canonical source ID, for example
+`https://plugins.wago.sh/github.com/wago-org/wasi`. Short-name and historical
+hash routes are intentionally not accepted by the breaking v1 site.
 
 The site is designed to **degrade gracefully**: with no backend reachable it
 still runs entirely from the static package index, faking sign-in, stars and

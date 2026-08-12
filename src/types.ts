@@ -1,7 +1,5 @@
-// Shared data shapes for the registry frontend. These mirror the wago-plugin/v1
-// manifest model (a package is a Go module shipping one or more subpackages) plus
-// the derived fields the Go backend adds. The static data/packages.json ships the
-// catalog taxonomy and a fallback package list in the same shapes.
+// Shared data shapes for the registry frontend. Published versions retain their
+// exact provider definitions so authority review never depends on an aggregate.
 
 export type Stability = "experimental" | "stable" | "deprecated";
 
@@ -10,21 +8,72 @@ export interface Compatibility {
     platforms: string[];
 }
 
-export interface Subpackage {
-    import: string;
-    id: string;
+export interface AuthorityScope {
+    modules?: string[];
+    maxInstances?: number;
+    maxMemoryBytes?: number;
+}
+
+export interface AuthorityRequest {
     name: string;
+    mode: "required" | "optional";
+    reason: string;
+    scope?: AuthorityScope;
+    // UI-only attribution derived from the containing immutable provider.
+    providerId?: string;
+}
+
+export interface PluginRequirement {
+    id: string;
     version: string;
-    description: string;
-    stability: Stability;
-    tags: string[];
-    compatibility: Compatibility;
-    readme?: string; // subpackage-specific readme (markdown); optional
+}
+
+export interface ContractSpec {
+    id: string;
+    major: number;
+}
+
+export interface ContractRequirement extends ContractSpec {
+    mode: "required" | "optional" | "many";
+}
+
+export interface PluginDefinition {
+    id: string;
+    name?: string;
+    version: string;
+    description?: string;
+    stability?: Stability;
+    compatibility?: Compatibility;
+    requires?: PluginRequirement[];
+    authorities?: AuthorityRequest[];
+    configSchema?: Record<string, unknown>;
+    provides?: ContractSpec[];
+    consumes?: ContractRequirement[];
+}
+
+export interface PublishedProvider {
+    id: string;
+    importPath: string;
+    source: { module: string; version: string; checksum: string };
+    definition: PluginDefinition;
+    definitionDigest: string;
 }
 
 export interface Author {
     name: string;
-    github: string;
+    email?: string;
+    url?: string;
+    github?: string;
+}
+
+export interface PackageSub {
+    module: string;
+    name: string;
+    description: string;
+    stability?: Stability;
+    tags?: string[];
+    engines?: Record<string, string>;
+    platforms?: string[];
 }
 
 export interface VersionRow {
@@ -36,7 +85,9 @@ export interface VersionRow {
     latest: boolean;
     installShare: number;
     deprecated?: boolean;
-    hidden?: boolean; // placeholder release (0.0.0): not a real, citable version
+    sourceChecksum: string;
+    providers: PublishedProvider[];
+    releaseFingerprint: string;
 }
 
 export interface Issue {
@@ -104,13 +155,14 @@ export interface Comment {
 }
 
 export interface Package {
-    // Canonical GitHub-relative package identity, e.g. wago-org/wasi.
+    // Full canonical source Plugin ID, e.g. github.com/wago-org/wasi.
     id: string;
-    // Internal compatibility key for existing interaction state. It is populated
-    // from `id` only and is never present in the backend payload.
+    // Internal registry key for API/social endpoints. New v1 publications use the
+    // same full canonical module ID; it is not a public short-name alias.
     short: string;
     // Technical repository fallback; not a public package name.
     module: string;
+    displayName?: string;
     description: string;
     category: string;
     tags: string[];
@@ -125,14 +177,17 @@ export interface Package {
     canManage?: boolean; // backend-computed: may the current viewer manage this package (org-aware)
     allowedPublishers?: string[]; // extra logins the owner lets publish (beyond repo admins)
     pendingPublishers?: { login: string; id: string }[]; // outstanding publish invites (manager view)
-    dependencies?: string[]; // module paths this package depends on
-    readme?: string; // module-level readme (markdown); fallback for subpackages
+    dependencies?: string[]; // exact Plugin IDs required by the latest source release
+    readme?: string; // module-level readme (markdown)
     deprecatedMessage?: string;
     compatibility: Compatibility;
-    capabilities: string[];
+    authorities: AuthorityRequest[];
+    providerIds?: string[]; // exact Plugin IDs exposed by the latest source release
     authors: Author[];
+    // Source-package metadata only. Executable plugins come exclusively from
+    // the immutable provider catalog on each VersionRow.
+    subpackages?: PackageSub[];
     contributors: string[];
-    subpackages: Subpackage[];
 
     version: string; // latest version, convenience for cards
     latestVersion: string;

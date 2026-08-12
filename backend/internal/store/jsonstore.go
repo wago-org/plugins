@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -17,6 +18,8 @@ import (
 
 // doc is the single on-disk JSON document.
 type doc struct {
+	StoreSchemaVersion int `json:"storeSchemaVersion"`
+
 	Users    map[string]model.User        `json:"users"`
 	Packages map[string]model.Package     `json:"packages"` // keyed by short
 	Stars    map[string][]string          `json:"stars"`    // short -> userIDs
@@ -28,14 +31,21 @@ type doc struct {
 	Tokens   map[string]model.APIToken    `json:"tokens"`   // tokenID -> token (hash only)
 
 	Notifications map[string]model.Notification `json:"notifications"` // notifID -> notification
+
+	// QuarantinedV0Packages keeps the exact pre-v1 package payloads out of all
+	// active listings while retaining an auditable recovery source. The active
+	// package records preserve safe metadata but deliberately carry no v0
+	// releases after the one-time store migration.
+	QuarantinedV0Packages map[string]quarantinedV0Package `json:"quarantinedV0Packages,omitempty"`
 }
 
 // JSONStore is a Store backed by a single JSON file, guarded by an RWMutex and
 // persisted atomically (temp file + rename) on every mutation.
 type JSONStore struct {
-	mu   sync.RWMutex
-	path string
-	doc  doc
+	mu        sync.RWMutex
+	path      string
+	doc       doc
+	migration *MigrationReport
 }
 
 // compile-time assertion that JSONStore satisfies Store.
@@ -54,28 +64,66 @@ func Open(path string) (*JSONStore, error) {
 		}
 		return nil, err
 	}
-	if len(data) > 0 {
-		if err := json.Unmarshal(data, &s.doc); err != nil {
+	if len(data) == 0 {
+		if err := s.persistLocked(); err != nil {
 			return nil, err
 		}
+		return s, nil
 	}
+	var loaded doc
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		return nil, err
+	}
+	s.doc = loaded
 	s.normalize()
+	if s.doc.StoreSchemaVersion < 0 {
+		return nil, fmt.Errorf("store schema version %d is invalid", s.doc.StoreSchemaVersion)
+	}
+	if s.doc.StoreSchemaVersion > currentStoreSchemaVersion {
+		return nil, fmt.Errorf("store schema version %d is newer than supported version %d", s.doc.StoreSchemaVersion, currentStoreSchemaVersion)
+	}
+	if s.doc.StoreSchemaVersion == 0 {
+		var raw struct {
+			Packages map[string]json.RawMessage `json:"packages"`
+		}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return nil, err
+		}
+		migration, err := migrateLegacyDoc(&s.doc, raw.Packages)
+		if err != nil {
+			return nil, fmt.Errorf("migrate store schema v0 to v1: %w", err)
+		}
+		if err := s.persistLocked(); err != nil {
+			return nil, fmt.Errorf("persist store schema v1: %w", err)
+		}
+		s.migration = migration.report(s.doc)
+	}
 	return s, nil
+}
+
+// StartupMigration reports a migration performed by this Open call.
+func (s *JSONStore) StartupMigration() (MigrationReport, bool) {
+	if s.migration == nil {
+		return MigrationReport{}, false
+	}
+	return *s.migration, true
 }
 
 func emptyDoc() doc {
 	return doc{
-		Users:    map[string]model.User{},
-		Packages: map[string]model.Package{},
-		Stars:    map[string][]string{},
-		Reviews:  map[string]model.Review{},
-		Votes:    map[string]map[string]string{},
-		Comments: map[string]model.Comment{},
-		Installs: map[string]map[string]int{},
-		Reports:  map[string]model.Report{},
-		Tokens:   map[string]model.APIToken{},
+		StoreSchemaVersion: currentStoreSchemaVersion,
+		Users:              map[string]model.User{},
+		Packages:           map[string]model.Package{},
+		Stars:              map[string][]string{},
+		Reviews:            map[string]model.Review{},
+		Votes:              map[string]map[string]string{},
+		Comments:           map[string]model.Comment{},
+		Installs:           map[string]map[string]int{},
+		Reports:            map[string]model.Report{},
+		Tokens:             map[string]model.APIToken{},
 
-		Notifications: map[string]model.Notification{},
+		Notifications:         map[string]model.Notification{},
+		QuarantinedV0Packages: map[string]quarantinedV0Package{},
 	}
 }
 
@@ -110,6 +158,9 @@ func (s *JSONStore) normalize() {
 	}
 	if s.doc.Notifications == nil {
 		s.doc.Notifications = map[string]model.Notification{}
+	}
+	if s.doc.QuarantinedV0Packages == nil {
+		s.doc.QuarantinedV0Packages = map[string]quarantinedV0Package{}
 	}
 }
 
@@ -184,32 +235,26 @@ func (s *JSONStore) ListPackages() []model.Package {
 	defer s.mu.RUnlock()
 	out := make([]model.Package, 0, len(s.doc.Packages))
 	for _, p := range s.doc.Packages {
-		out = append(out, p)
+		out = append(out, clonePackage(p))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Short < out[j].Short })
 	return out
 }
 
-// GetPackage matches by short id first, then by full module name.
+// GetPackage matches the exact canonical package key. V1 deliberately has no
+// short-name or module-name fallback aliases.
 func (s *JSONStore) GetPackage(id string) (model.Package, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if p, ok := s.doc.Packages[id]; ok {
-		return p, true
-	}
-	for _, p := range s.doc.Packages {
-		if p.Name == id {
-			return p, true
-		}
-	}
-	return model.Package{}, false
+	p, ok := s.doc.Packages[id]
+	return clonePackage(p), ok
 }
 
-// UpsertPackage inserts or replaces a package keyed by its short id.
+// UpsertPackage inserts or replaces a package keyed by its canonical module ID.
 func (s *JSONStore) UpsertPackage(p model.Package) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.doc.Packages[p.Short] = p
+	s.doc.Packages[p.Short] = clonePackage(p)
 	return s.persistLocked()
 }
 

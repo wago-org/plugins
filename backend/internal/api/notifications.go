@@ -56,6 +56,8 @@ func (a *App) handleAcceptNotification(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusConflict, "this invite is no longer pending")
 		return
 	}
+	unlockPackage := a.lockPackageWrite(n.PackageShort)
+	defer unlockPackage()
 	p, exists := a.Store.GetPackage(n.PackageShort)
 	if !exists {
 		// The package vanished; retire the invite so it stops showing.
@@ -120,6 +122,8 @@ type inviteRequest struct {
 // invitee must accept it (in their notifications) before they can publish. Owner
 // / admin only.
 func (a *App) handleInvitePublisher(w http.ResponseWriter, r *http.Request) {
+	unlockPackage := a.lockPackageWrite(r.PathValue("name"))
+	defer unlockPackage()
 	p, ok := a.ownedPackage(w, r)
 	if !ok {
 		return

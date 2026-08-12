@@ -6,7 +6,9 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -23,18 +25,47 @@ import (
 
 // App holds the shared runtime dependencies for the HTTP handlers.
 type App struct {
-	Cfg      config.Config
-	Store    store.Store
-	Sessions *auth.Sessions
-	GitHub   *auth.GitHub
-	Email    *email.Sender
-	list     *listCache
-	orgRoles orgRoleCache
-	orgs     orgsCache
+	Cfg            config.Config
+	Store          store.Store
+	Sessions       *auth.Sessions
+	GitHub         *auth.GitHub
+	Email          *email.Sender
+	sourceVerifier SourceVerifier
+	list           *listCache
+	orgRoles       orgRoleCache
+	orgs           orgsCache
+	packageWrites  [64]sync.Mutex
+	catalogWrites  sync.Mutex
+}
+
+// lockPackageWrite serializes read-modify-write operations for one package.
+// Persistent stores are embedded in this process, so bounded sharding prevents
+// lost releases and management updates without an attacker-controlled lock map.
+func (a *App) lockPackageWrite(key string) func() {
+	const offset32 = uint32(2166136261)
+	const prime32 = uint32(16777619)
+	hash := offset32
+	for i := 0; i < len(key); i++ {
+		hash ^= uint32(key[i])
+		hash *= prime32
+	}
+	mutex := &a.packageWrites[hash%uint32(len(a.packageWrites))]
+	mutex.Lock()
+	return mutex.Unlock
 }
 
 // New builds an App and its auth dependencies from config and a store.
 func New(cfg config.Config, st store.Store) *App {
+	return NewWithSourceVerifier(cfg, st, newGoSourceVerifier())
+}
+
+// NewWithSourceVerifier builds an App with an explicit publish-verification
+// dependency. Tests use a deterministic fake; production New always installs
+// the exact-artifact verifier.
+func NewWithSourceVerifier(cfg config.Config, st store.Store, verifier SourceVerifier) *App {
+	if verifier == nil {
+		panic("api: nil source verifier")
+	}
 	a := &App{
 		Cfg:      cfg,
 		Store:    st,
@@ -47,7 +78,8 @@ func New(cfg config.Config, st store.Store) *App {
 			Pass: cfg.SMTPPass,
 			From: cfg.SMTPFrom,
 		}),
-		list: &listCache{},
+		sourceVerifier: verifier,
+		list:           &listCache{},
 	}
 	// Let a session "act as" an org: resolve the effective org identity when the
 	// active user administers it. Kept as a hook so the auth package needn't know
@@ -166,6 +198,8 @@ func (a *App) NewRouter() http.Handler {
 	mux.HandleFunc("GET /api/packages", a.handleListPackages)
 	mux.HandleFunc("GET /api/packages/{name}", a.handleGetPackage)
 	mux.HandleFunc("GET /api/packages/{name}/versions", a.handleVersions)
+	mux.HandleFunc("GET /api/v1/plugins/resolve", a.handleResolvePlugin)
+	mux.HandleFunc("GET /api/v1/plugins/candidates", a.handlePluginCandidates)
 
 	// Installs.
 	mux.HandleFunc("POST /api/packages/{name}/installs", a.handleRecordInstall)
@@ -218,6 +252,24 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any, max int64) error 
 	return json.NewDecoder(http.MaxBytesReader(w, r.Body, max)).Decode(v)
 }
 
+// decodeJSONStrict is used by versioned, immutable contracts. Unlike the
+// browser-oriented mutation endpoints, accepting an unknown field here could
+// cause a publisher and consumer to review different metadata.
+func decodeJSONStrict(w http.ResponseWriter, r *http.Request, v any, max int64) error {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, max))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values")
+		}
+		return err
+	}
+	return nil
+}
+
 // compactCount renders an install count in a compact form: >=1e6 -> "4.2M",
 // >=1e3 -> "48.2k", else the number.
 func compactCount(n int) string {
@@ -244,19 +296,31 @@ func trimZero(f float64) string {
 // fields the frontend expects (live stars, installs, latest-version convenience
 // fields). When viewerID is non-empty, "starred" is included.
 func (a *App) decoratePackage(p model.Package, viewerID string) map[string]any {
-	raw, _ := json.Marshal(p)
+	view := p
+	view.Versions = append([]model.Version(nil), p.Versions...)
+	sortVersionsNewest(view.Versions)
+	raw, _ := json.Marshal(view)
 	var m map[string]any
 	_ = json.Unmarshal(raw, &m)
-	// The public registry identity is the GitHub-relative canonical ID. Keep the
-	// legacy storage fields private: records are keyed by this same value after
-	// the catalog reset/re-publish, but clients must not depend on aliases.
+	// Public v1 identity is the full canonical source module. The legacy-named
+	// storage field carries that same full value and never creates an alias.
 	delete(m, "name")
-	delete(m, "short")
-	m["id"] = p.Short
+	m["id"] = p.Name
+	m["module"] = p.Name
 
 	latest := p.LatestVersion()
 	m["version"] = latest.Version
 	m["latestVersion"] = latest.Version
+	authorities := make([]model.AuthorityRequest, 0)
+	providerIDs := make([]string, 0, len(latest.Providers))
+	for _, provider := range latest.Providers {
+		providerIDs = append(providerIDs, provider.ID)
+		for _, authority := range provider.Definition.Authorities {
+			authorities = append(authorities, authority)
+		}
+	}
+	m["authorities"] = authorities
+	m["providerIds"] = providerIDs
 	if latest.PublishedAt != "" {
 		m["updatedAt"] = latest.PublishedAt
 	}

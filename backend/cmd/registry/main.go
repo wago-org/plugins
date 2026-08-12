@@ -54,6 +54,12 @@ func main() {
 		defer ps.Close()
 		st = ps
 	}
+	if reporter, ok := st.(store.MigrationReporter); ok {
+		if migration, migrated := reporter.StartupMigration(); migrated {
+			log.Printf("store migrated: schema %d -> %d, canonical packages=%d, quarantined v0 packages=%d",
+				migration.FromVersion, migration.ToVersion, migration.CanonicalPackages, migration.QuarantinedPackages)
+		}
+	}
 
 	// Seed from the packages file when the store is empty.
 	if err := store.Seed(st, cfg.PackagesFile); err != nil {
