@@ -42,6 +42,7 @@ const esc = (value) =>
         .replace(/"/g, "&quot;");
 
 const clean = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+const semanticVersion = (value) => clean(value).replace(/^v/, "");
 
 const canonicalID = (pkg) => {
     for (const candidate of [pkg.id, pkg.module, pkg.name]) {
@@ -98,7 +99,7 @@ function isStrictV1Detail(pkg) {
                 source.module !== pkg.id ||
                 source.version !== release.version ||
                 source.checksum !== release.sourceChecksum ||
-                definition.version !== release.version ||
+                semanticVersion(definition.version) !== semanticVersion(release.version) ||
                 !SHA256_RE.test(provider.definitionDigest || "")
             ) {
                 return false;
