@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -78,17 +79,44 @@ func (a *App) setGitHubStar(w http.ResponseWriter, r *http.Request, on bool) {
 
 // parseGitHubRepo extracts owner/repo from a GitHub repository URL.
 func parseGitHubRepo(repository string) (owner, repo string, ok bool) {
-	i := strings.Index(repository, "github.com/")
-	if i < 0 {
+	u, err := url.Parse(repository)
+	if err != nil || u.Scheme != "https" || !strings.EqualFold(u.Hostname(), "github.com") ||
+		u.Port() != "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" {
 		return "", "", false
 	}
-	rest := strings.Trim(repository[i+len("github.com/"):], "/")
+	rest := strings.TrimSuffix(strings.TrimPrefix(u.EscapedPath(), "/"), "/")
 	rest = strings.TrimSuffix(rest, ".git")
-	parts := strings.SplitN(rest, "/", 3)
-	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+	parts := strings.Split(rest, "/")
+	if len(parts) != 2 || !validGitHubOwner(parts[0]) || !validGitHubRepo(parts[1]) {
 		return "", "", false
 	}
-	return parts[0], strings.TrimSuffix(parts[1], ".git"), true
+	return parts[0], parts[1], true
+}
+
+func validGitHubOwner(value string) bool {
+	if len(value) == 0 || len(value) > 39 || value[0] == '-' || value[len(value)-1] == '-' {
+		return false
+	}
+	for _, r := range value {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validGitHubRepo(value string) bool {
+	if len(value) == 0 || len(value) > 100 || value == "." || value == ".." {
+		return false
+	}
+	for _, r := range value {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("._-", r) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // handleMyStars returns the package shorts the current user has starred.

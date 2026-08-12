@@ -6,35 +6,6 @@ import (
 	"github.com/wago-org/registry-backend/internal/config"
 )
 
-func TestParseAuthors(t *testing.T) {
-	cases := map[string][2]string{ // input → {name, github}
-		"@octocat":         {"octocat", "octocat"},
-		"octocat":          {"octocat", "octocat"}, // bare login
-		"Jane Doe <@jane>": {"Jane Doe", "jane"},
-		"Jane Doe (@jane)": {"Jane Doe", "jane"},
-		"The wago authors": {"The wago authors", ""}, // spaces → name only
-		"wago-org":         {"wago-org", "wago-org"}, // hyphen login
-		"Bad_Login":        {"Bad_Login", ""},        // underscore not a login char
-	}
-	for in, want := range cases {
-		got := parseAuthors([]string{in})
-		if len(got) != 1 || got[0].Name != want[0] || got[0].Github != want[1] {
-			t.Errorf("parseAuthors(%q) = %+v, want {Name:%q Github:%q}", in, got, want[0], want[1])
-		}
-	}
-}
-
-func TestIsGitHubLogin(t *testing.T) {
-	for in, want := range map[string]bool{
-		"octocat": true, "wago-org": true, "a": true,
-		"-lead": false, "trail-": false, "has space": false, "und_er": false, "": false,
-	} {
-		if isGitHubLogin(in) != want {
-			t.Errorf("isGitHubLogin(%q) = %v, want %v", in, isGitHubLogin(in), want)
-		}
-	}
-}
-
 func TestHasWrite(t *testing.T) {
 	for perm, want := range map[string]bool{
 		"admin": true, "maintain": true, "write": true,
@@ -63,13 +34,32 @@ func TestSameRepo(t *testing.T) {
 		want bool
 	}{
 		{"https://github.com/wago-org/wasi", "https://github.com/wago-org/wasi.git", true},
-		{"https://github.com/Wago-Org/Wasi", "github.com/wago-org/wasi", true},
+		{"https://github.com/Wago-Org/Wasi", "https://github.com/wago-org/wasi", true},
 		{"https://github.com/wago-org/wasi", "https://github.com/wago-org/other", false},
 		{"https://github.com/a/b", "https://gitlab.com/a/b", false},
+		{"https://evil.example/github.com/a/b", "https://github.com/a/b", false},
+		{"https://github.com/a/b/issues", "https://github.com/a/b", false},
+		{"https://github.com/a/b?tab=readme", "https://github.com/a/b", false},
 	}
 	for _, c := range cases {
 		if sameRepo(c.a, c.b) != c.want {
 			t.Errorf("sameRepo(%q, %q) = %v, want %v", c.a, c.b, sameRepo(c.a, c.b), c.want)
+		}
+	}
+}
+
+func TestModuleBelongsToRepository(t *testing.T) {
+	for _, tc := range []struct {
+		module, repository string
+		want               bool
+	}{
+		{"github.com/acme/plugin", "https://github.com/acme/plugin", true},
+		{"github.com/acme/monorepo/plugins/pool", "https://github.com/acme/monorepo", true},
+		{"github.com/acme/plugin", "https://github.com/acme/other", false},
+		{"github.com/acme/plugin", "https://evil.example/github.com/acme/plugin", false},
+	} {
+		if got := moduleBelongsToRepository(tc.module, tc.repository); got != tc.want {
+			t.Errorf("moduleBelongsToRepository(%q, %q) = %v, want %v", tc.module, tc.repository, got, tc.want)
 		}
 	}
 }

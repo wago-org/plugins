@@ -15,6 +15,9 @@ const API = "https://api.plugins.wago.sh/api/packages";
 const LOGO = `${ORIGIN}/assets/wago-logo.png`;
 const SEO_RE = /<!-- prerender:seo:start[\s\S]*?<!-- prerender:seo:end -->/;
 const CONTENT_RE = /<!-- prerender:content:start[\s\S]*?<!-- prerender:content:end -->/;
+const PLUGIN_ID_RE = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9](?:[A-Za-z0-9._~-]*[A-Za-z0-9])?)+$/;
+const SHA256_RE = /^sha256:[0-9a-f]{64}$/;
+const H1_RE = /^h1:[A-Za-z0-9+/]{43}=$/;
 
 const RESERVED = new Set([
     "search",
@@ -41,13 +44,70 @@ const esc = (value) =>
 const clean = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
 const canonicalID = (pkg) => {
-    const explicit = clean(pkg.id).replace(/^github\.com\//, "");
-    if (explicit.includes("/")) return explicit;
-    const legacy = clean(pkg.short).replace(/^github\.com\//, "");
-    if (legacy.includes("/")) return legacy;
-    if (pkg.ownerLogin && legacy) return `${pkg.ownerLogin}/${legacy}`;
-    return clean(pkg.name).replace(/^github\.com\//, "");
+    for (const candidate of [pkg.id, pkg.module, pkg.name]) {
+        const id = clean(candidate);
+        if (id.startsWith("github.com/")) return id;
+    }
+    return "";
 };
+
+const belongsToModule = (path, module) =>
+    path === module || path.startsWith(`${module}/`);
+
+function isStrictV1Summary(pkg) {
+    const id = canonicalID(pkg);
+    return (
+        id.length <= 300 &&
+        PLUGIN_ID_RE.test(id) &&
+        id.startsWith("github.com/") &&
+        pkg.id === id &&
+        pkg.module === id &&
+        pkg.short === id
+    );
+}
+
+function isStrictV1Detail(pkg) {
+    if (!isStrictV1Summary(pkg) || !Array.isArray(pkg.versions) || pkg.versions.length === 0) {
+        return false;
+    }
+    const versions = new Set();
+    let latest = 0;
+    for (const release of pkg.versions) {
+        if (
+            typeof release.version !== "string" ||
+            versions.has(release.version) ||
+            !H1_RE.test(release.sourceChecksum || "") ||
+            !SHA256_RE.test(release.releaseFingerprint || "") ||
+            !Array.isArray(release.providers) ||
+            release.providers.length === 0
+        ) {
+            return false;
+        }
+        versions.add(release.version);
+        if (release.latest) latest++;
+        const providerIDs = new Set();
+        for (const provider of release.providers) {
+            const definition = provider.definition || {};
+            const source = provider.source || {};
+            if (
+                !PLUGIN_ID_RE.test(provider.id || "") ||
+                providerIDs.has(provider.id) ||
+                provider.id !== definition.id ||
+                !belongsToModule(provider.id, pkg.id) ||
+                !belongsToModule(provider.importPath || "", pkg.id) ||
+                source.module !== pkg.id ||
+                source.version !== release.version ||
+                source.checksum !== release.sourceChecksum ||
+                definition.version !== release.version ||
+                !SHA256_RE.test(provider.definitionDigest || "")
+            ) {
+                return false;
+            }
+            providerIDs.add(provider.id);
+        }
+    }
+    return latest === 1;
+}
 
 const pathForID = (id) => id.split("/").map(encodeURIComponent).join("/");
 
@@ -56,11 +116,23 @@ const unique = (values) =>
 
 function catalogPackage(pkg) {
     const id = canonicalID(pkg);
+    const githubRelativeID = id.replace(/^github\.com\//, "");
+    const versions = pkg.versions || [];
+    const latest = versions.find((version) => version.latest) || versions[0] || {};
+    const providers = latest.providers || [];
+    const authorities = providers.length
+        ? providers.flatMap((provider) =>
+              (provider.definition?.authorities || []).map((authority) => ({
+                  ...authority,
+                  providerId: provider.id,
+              })),
+          )
+        : pkg.authorities || [];
     return {
         id,
         url: `${ORIGIN}/${pathForID(id)}`,
         description: clean(pkg.description),
-        repository: clean(pkg.repository) || `https://github.com/${id}`,
+        repository: clean(pkg.repository) || `https://github.com/${githubRelativeID}`,
         homepage: clean(pkg.homepage) || undefined,
         category: clean(pkg.category) || "uncategorized",
         stability: clean(pkg.stability) || "unspecified",
@@ -68,9 +140,21 @@ function catalogPackage(pkg) {
         license: clean(pkg.license) || "unspecified",
         official: Boolean(pkg.official),
         verified: Boolean(pkg.verified),
-        owner: clean(pkg.ownerLogin || id.split("/")[0]),
+        owner: clean(pkg.ownerLogin || githubRelativeID.split("/")[0]),
         keywords: unique([...(pkg.keywords || []), ...(pkg.tags || [])]),
-        capabilities: unique(pkg.capabilities),
+        authorities: authorities.map((authority) => ({
+            name: clean(authority.name),
+            mode: clean(authority.mode),
+            reason: clean(authority.reason),
+            providerId: clean(authority.providerId) || undefined,
+            scope: {
+                modules: unique(authority.scope?.modules),
+                maxInstances: Number(authority.scope?.maxInstances || 0) || undefined,
+                maxMemoryBytes: Number(authority.scope?.maxMemoryBytes || 0) || undefined,
+            },
+        })),
+        providers,
+        releaseFingerprint: clean(latest.releaseFingerprint) || undefined,
         compatibility: {
             engines: pkg.compatibility?.engines || {},
             platforms: unique(pkg.compatibility?.platforms),
@@ -80,16 +164,6 @@ function catalogPackage(pkg) {
             github: clean(author.github),
         })),
         contributors: unique(pkg.contributors),
-        subpackages: (pkg.subpackages || []).map((sub) => ({
-            id: clean(sub.id),
-            name: clean(sub.name),
-            import: clean(sub.import),
-            version: clean(sub.version),
-            description: clean(sub.description),
-            stability: clean(sub.stability) || "unspecified",
-            tags: unique(sub.tags),
-            compatibility: sub.compatibility || { engines: {}, platforms: [] },
-        })),
         updatedAt: clean(pkg.updatedAt) || undefined,
         metrics: {
             stars: Number(pkg.stars || 0),
@@ -199,12 +273,16 @@ function packageContent(pkg) {
         .map(([engine, range]) => `${engine} ${range}`)
         .join(", ");
     const platforms = pkg.compatibility.platforms.join(", ");
-    const subpackages = pkg.subpackages.length
-        ? `<h2>Subpackages</h2><ul>${pkg.subpackages
-              .map(
-                  (sub) =>
-                      `<li><strong>${esc(sub.name || sub.id)}</strong>${sub.import ? ` — <code>${esc(sub.import)}</code>` : ""}${sub.description ? `: ${esc(sub.description)}` : ""}</li>`,
-              )
+    const authorities = pkg.authorities.length
+        ? `<h2>Requested authorities</h2><ul>${pkg.authorities
+              .map((authority) => {
+                  const scope = authority.scope.modules?.length
+                      ? `modules: ${authority.scope.modules.join(", ")}`
+                      : authority.scope.maxInstances
+                        ? `max ${authority.scope.maxInstances} instances, ${authority.scope.maxMemoryBytes} bytes`
+                        : "";
+                  return `<li><strong><code>${esc(authority.name)}</code> (${esc(authority.mode)})</strong>${authority.providerId ? ` from <code>${esc(authority.providerId)}</code>` : ""}${scope ? ` — ${esc(scope)}` : ""}: ${esc(authority.reason)}</li>`;
+              })
               .join("")}</ul>`
         : "";
     return `            <main class="crawler">
@@ -221,8 +299,8 @@ function packageContent(pkg) {
                     ${fact("Compatible engines", engines)}
                     ${fact("Platforms", platforms)}
                 </ul>
-                ${tags(unique([...pkg.keywords, ...pkg.capabilities]))}
-                ${subpackages}
+                ${tags(pkg.keywords)}
+                ${authorities}
                 <h2>Sources</h2>
                 <p><a href="${esc(pkg.repository)}">Repository on GitHub →</a></p>
                 <p><a href="/data/catalog.json">Structured registry data</a> · <a href="/llms-full.txt">Complete readable catalog</a></p>
@@ -335,7 +413,7 @@ Categories: ${categories.join(", ")}
 - [Browse the interactive registry](${ORIGIN}/)
 - [wago engine documentation](https://github.com/wago-org/wago)
 
-Treat version "unreleased" or "0.0.0" as a placeholder, not a stable published release. Use each package's repository and compatibility fields as the canonical technical references.
+Treat "unreleased" as missing publication data. Version 0.0.0 is a real immutable semantic version. Use each package's exact provider source, definition digest, requested authorities, repository, and compatibility fields as the canonical technical references.
 `;
 }
 
@@ -359,8 +437,9 @@ function llmsFull(packages, generated) {
 - Engines: ${engines || "not specified"}
 - Platforms: ${pkg.compatibility.platforms.join(", ") || "not specified"}
 - Keywords: ${pkg.keywords.join(", ") || "none published"}
-- Capabilities: ${pkg.capabilities.join(", ") || "none published"}
-- Subpackages: ${pkg.subpackages.map((sub) => sub.import || sub.name || sub.id).join(", ") || "none published"}
+- Providers: ${pkg.providers.map((provider) => `${provider.id} from ${provider.source?.module || "unknown"}@${provider.source?.version || "unknown"} (${provider.importPath || "unknown import"})`).join(", ") || "none published"}
+- Requested authorities: ${pkg.authorities.map((authority) => `${authority.name} (${authority.mode})${authority.providerId ? ` from ${authority.providerId}` : ""}: ${authority.reason}`).join("; ") || "none requested"}
+- Release fingerprint: ${pkg.releaseFingerprint || "not specified"}
 - Updated: ${pkg.updatedAt || "not specified"}`;
     });
     return `# wago plugin registry: complete catalog
@@ -387,21 +466,39 @@ async function loadPackages() {
         const response = await fetch(API, { headers: { accept: "application/json" } });
         if (response.ok) {
             const data = await response.json();
-            if (Array.isArray(data?.packages) && data.packages.length) {
-                console.log(`prerender: ${data.packages.length} packages from the live API`);
-                return data.packages;
+            if (Array.isArray(data?.packages) && data.packages.every(isStrictV1Summary)) {
+                const details = await Promise.all(
+                    data.packages.map(async (summary) => {
+                        const id = canonicalID(summary);
+                        const detailResponse = await fetch(`${API}/${encodeURIComponent(id)}`, {
+                            headers: { accept: "application/json" },
+                        });
+                        if (!detailResponse.ok) {
+                            throw new Error(`detail ${id} returned ${detailResponse.status}`);
+                        }
+                        const detail = await detailResponse.json();
+                        if (!isStrictV1Detail(detail)) {
+                            throw new Error(`detail ${id} is not a strict immutable v1 record`);
+                        }
+                        return detail;
+                    }),
+                );
+                console.log(`prerender: ${details.length} packages from the live v1 API`);
+                return { packages: details, source: API };
             }
+            console.warn("prerender: live API is not the strict v1 full-ID contract; ignoring it");
+        } else {
+            console.warn(`prerender: API returned ${response.status}; trying committed index`);
         }
-        console.warn(`prerender: API returned ${response.status}; trying committed index`);
     } catch (error) {
         console.warn(`prerender: API unreachable (${error.message}); trying committed index`);
     }
     const file = JSON.parse(await readFile(join(DIST, "data", "packages.json"), "utf8"));
-    if (!Array.isArray(file.packages) || !file.packages.length) {
-        throw new Error("no package data available from the live API or committed index");
+    if (!Array.isArray(file.packages) || !file.packages.every(isStrictV1Detail)) {
+        throw new Error("committed index is not a strict immutable v1 package list");
     }
     console.log(`prerender: ${file.packages.length} packages from data/packages.json`);
-    return file.packages;
+    return { packages: file.packages, source: "/data/packages.json" };
 }
 
 async function main() {
@@ -410,11 +507,14 @@ async function main() {
         throw new Error("index.html is missing prerender SEO/content markers");
     }
 
-    const rawPackages = await loadPackages();
-    const packages = rawPackages.map(catalogPackage).filter((pkg) => pkg.id.includes("/"));
+    const loaded = await loadPackages();
+    const rawPackages = loaded.packages;
+    const packages = rawPackages
+        .map(catalogPackage)
+        .filter((pkg) => PLUGIN_ID_RE.test(pkg.id) && pkg.id.startsWith("github.com/"));
     if (packages.length !== rawPackages.length) {
         throw new Error(
-            `only ${packages.length}/${rawPackages.length} packages have canonical owner/repository IDs`,
+            `only ${packages.length}/${rawPackages.length} packages have canonical full Plugin IDs`,
         );
     }
     packages.sort((a, b) => a.id.localeCompare(b.id));
@@ -423,7 +523,7 @@ async function main() {
     const catalog = {
         schemaVersion: 1,
         generated,
-        source: API,
+        source: loaded.source,
         canonicalUrl: `${ORIGIN}/`,
         total: packages.length,
         packages,

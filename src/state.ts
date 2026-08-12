@@ -4,8 +4,8 @@
 
 import type { Account, Comment, Issue, InstallPoint, Notification, OrgRef, Package, Registry, Report, Review, User, ViewUser } from "./types.js";
 
-export type Screen = "home" | "search" | "package" | "auth" | "account" | "user" | "notifications";
-export type PkgTab = "readme" | "reviews" | "comments" | "dependencies" | "dependents" | "versions" | "subpackages" | "settings";
+export type Screen = "home" | "search" | "package" | "auth" | "account" | "user" | "notifications" | "not-found";
+export type PkgTab = "readme" | "reviews" | "comments" | "dependencies" | "dependents" | "versions" | "settings";
 export type Sort = "popular" | "recent";
 export type AcctTab = "profile" | "plugins" | "stars" | "saved" | "organizations" | "reports" | "settings";
 
@@ -30,7 +30,6 @@ export interface AppState {
     // package view
     pkg: Package | null;
     pkgTab: PkgTab;
-    sub: string | null; // id of the subpackage whose page is open (else null)
     readme: string | null; // the package repo's README markdown, fetched from GitHub
     readmeLoading: boolean;
     readmeBase: { owner: string; repo: string; ref?: string } | null; // for resolving the README's relative image/link URLs
@@ -129,7 +128,6 @@ export const state: AppState = {
 
     pkg: null,
     pkgTab: "readme",
-    sub: null,
     readme: null,
     readmeLoading: false,
     readmeBase: null,
@@ -196,8 +194,20 @@ export const state: AppState = {
     authError: null,
 };
 
-// Look up a package by its canonical GitHub-relative ID (owner/repository).
+// Look up a package by canonical full Plugin ID. A child provider ID resolves to
+// the source package that publishes it. Internal callers may also use the
+// registry storage key; that key is never a public route.
 export function findPackage(reg: Registry | null, key: string): Package | null {
     if (!reg) return null;
-    return reg.packages.find((p) => p.short === key) || null;
+    return (
+        reg.packages.find(
+            (p) =>
+                p.short === key ||
+                p.module === key ||
+                (p.providerIds || []).includes(key) ||
+                p.versions.some((version) =>
+                    (version.providers || []).some((provider) => provider.id === key),
+                ),
+        ) || null
+    );
 }

@@ -195,6 +195,33 @@ func (g *GitHub) RepoAccess(token, owner, repo string) (perm string, isOrg bool,
 	return "none", isOrg, nil
 }
 
+// ResolveTagCommit resolves an exact release tag to the commit GitHub serves for
+// it. The commits endpoint dereferences both annotated and lightweight tags.
+func (g *GitHub) ResolveTagCommit(token, owner, repo, tag string) (string, error) {
+	endpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/commits/" + url.PathEscape("tags/"+tag)
+	body, err := ghGetMedia(token, endpoint, "application/vnd.github.sha")
+	if err != nil {
+		return "", err
+	}
+	commit := strings.TrimSpace(string(body))
+	if !fullLowerGitCommit(commit) {
+		return "", errors.New("github returned an invalid commit SHA for the release tag")
+	}
+	return commit, nil
+}
+
+func fullLowerGitCommit(value string) bool {
+	if len(value) != 40 {
+		return false
+	}
+	for _, char := range value {
+		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
 // Org is one of the authenticated user's GitHub organizations, with the profile
 // bits the registry surfaces and the viewer's role in it. Role is "admin" when
 // the user is an org owner (or the special-case single-owner), else "member".
@@ -368,12 +395,16 @@ func ghGetJSONSlice[T any](token, endpoint string) ([]T, error) {
 
 // ghGet performs an authenticated GET against the GitHub API.
 func ghGet(token, endpoint string) ([]byte, error) {
+	return ghGetMedia(token, endpoint, "application/vnd.github+json")
+}
+
+func ghGetMedia(token, endpoint, accept string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Accept", accept)
 	req.Header.Set("User-Agent", "wago-registry-backend")
 
 	resp, err := githubHTTP.Do(req)

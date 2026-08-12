@@ -8,8 +8,6 @@ import type {
     Notification,
     Package,
     Review,
-    Stability,
-    Subpackage,
     User,
     UserEmail,
     VersionRow,
@@ -38,12 +36,13 @@ const C = {
     nav: "var(--nav-bg)",
 };
 
-// stability → accent colour trio (text, bg, border)
-const STABILITY: Record<Stability, { color: string; bg: string; border: string }> = {
-    stable: { color: "var(--green)", bg: "var(--stable-bg)", border: "var(--stable-border)" },
-    experimental: { color: "var(--lilac)", bg: "var(--panel)", border: "var(--line-2)" },
-    deprecated: { color: "var(--warning-text)", bg: "var(--warning-bg)", border: "var(--warning-border)" },
-};
+function formatBytes(bytes: number): string {
+    if (bytes <= 0) return "0 B";
+    const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+    const power = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / 1024 ** power;
+    return `${value >= 10 || Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)} ${units[power]}`;
+}
 
 function relative(iso: string): string {
     return iso ? relativeDate(iso) : "—";
@@ -487,11 +486,6 @@ function tagPills(tags: string[]): string {
         .join("");
 }
 
-function stabilityPill(st: Stability): string {
-    const s = STABILITY[st] || STABILITY.stable;
-    return `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${s.color};background:${s.bg};border:1px solid ${s.border};padding:4px 10px;border-radius:100px">${esc(st)}</span>`;
-}
-
 // ── home ─────────────────────────────────────────────────────────────────────
 
 export function homeScreen(s: AppState): string {
@@ -732,12 +726,8 @@ export function packageScreen(s: AppState): string {
         tabEl("dependents", `Dependents · ${dependentsOf(s, p).length}`),
         tabEl("versions", `Versions · ${p.versions.length}`),
     ].join("");
-    // Subpackages + Settings tabs are anchored to the far right of the tab bar.
-    const subTab = p.subpackages.length
-        ? tabEl("subpackages", `Subpackages · ${p.subpackages.length}`, "margin-left:auto")
-        : "";
     const settingsTabEl = canManagePackage(s)
-        ? tabEl("settings", "⚙ Settings", subTab ? "" : "margin-left:auto")
+        ? tabEl("settings", "⚙ Settings", "margin-left:auto")
         : "";
 
     const badges = `${p.verified ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.ink};background:${C.green};padding:5px 11px;border-radius:100px">✦ verified</span>` : ""}<span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.lilac};border:1px solid ${C.line2};padding:5px 11px;border-radius:100px">${esc(p.version)}</span>`;
@@ -772,19 +762,14 @@ export function packageScreen(s: AppState): string {
   <p style="font-size:17px;line-height:1.6;color:${C.soft};margin:0 0 14px;max-width:680px">${esc(p.description)}</p>
   <div style="display:flex;align-items:center;gap:18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin:0 0 28px;flex-wrap:wrap">
     <span style="display:inline-flex;align-items:center;gap:7px">${starMetric(p, 14)}<span>stars</span></span>
-    <span>${p.subpackages.length} subpackage${p.subpackages.length === 1 ? "" : "s"}</span>
     <span>${p.license || "—"}</span>
   </div>
 
   ${p.deprecatedMessage ? deprecationBanner(p.deprecatedMessage) : ""}
   <div class="r-split" style="display:grid;grid-template-columns:1fr 300px;gap:36px;align-items:start">
     <main style="min-width:0">
-      ${
-          s.sub
-              ? subpackageDetail(s)
-              : `<div class="r-tabs" style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}${subTab}${settingsTabEl}</div>
-      ${pkgTabBody(s)}`
-      }
+      <div class="r-tabs" style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}${settingsTabEl}</div>
+      ${pkgTabBody(s)}
     </main>
     ${pkgSidebar(s)}
   </div>
@@ -841,8 +826,6 @@ function pkgTabBody(s: AppState): string {
             return dependentsTab(s);
         case "versions":
             return versionsTab(s);
-        case "subpackages":
-            return subpackagesTab(s);
         case "settings":
             return settingsTab(s);
         default:
@@ -850,45 +833,6 @@ function pkgTabBody(s: AppState): string {
     }
 }
 
-// The Subpackages tab: intro + the grid of subpackage cards (each opens its own
-// page). Replaces the old block that lived at the bottom of the readme.
-function subpackagesTab(s: AppState): string {
-    const p = s.pkg!;
-    if (!p.subpackages?.length) {
-        return `<div style="padding:20px;color:${C.muted};font-size:14px;background:${C.panel};border-radius:12px">This module ships no subpackages.</div>`;
-    }
-    return `
-  <h2 style="font-weight:800;font-size:22px;letter-spacing:-0.5px;margin:0 0 8px">Subpackages <span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:${C.muted};font-weight:500">${p.subpackages.length}</span></h2>
-  <p style="font-size:14px;line-height:1.6;color:${C.soft};margin:0 0 18px;max-width:640px">Each is an independently importable wago extension, version-stamped and documented on its own page.</p>
-  <div style="display:flex;flex-direction:column;gap:12px">${subpackageCards(p)}</div>`;
-}
-
-// A single subpackage's page: its own readme (or the module readme as a
-// fallback), reached by clicking a card or via /{owner}/{repository}/{id}.
-function subpackageDetail(s: AppState): string {
-    const p = s.pkg!;
-    const e = p.subpackages.find((x) => x.id === s.sub);
-    if (!e) {
-        // Unknown subpackage id — fall back to the subpackages listing.
-        return subpackagesTab(s);
-    }
-    const body = e.readme || p.readme || "";
-    const readmeHtml = body
-        ? mdBlock(body)
-        : `<p style="font-size:15px;line-height:1.65;color:${C.soft};margin:0 0 20px">${esc(e.description)}</p>
-       <div style="font-size:13px;color:${C.muted};background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:16px 18px">No dedicated readme was provided for this subpackage.</div>`;
-    return `
-  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:18px">
-    <span data-act="tab" data-arg="subpackages" style="color:${C.lilac};cursor:pointer">← ${esc(p.short)} subpackages</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-    <h2 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;letter-spacing:-0.5px;margin:0">${esc(e.id)}</h2>
-    ${stabilityPill(e.stability)}
-    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted}">v${esc(e.version)}</span>
-  </div>
-  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted};margin-bottom:20px">import <span style="color:${C.lilac}">"${esc(e.import)}"</span> · <a href="https://pkg.go.dev/${escAttr(e.import)}" target="_blank" rel="noopener" style="color:${C.lilac};text-decoration:none">docs ↗</a></div>
-  ${readmeHtml}`;
-}
 
 // The Readme tab shows the package repository's real README.md, fetched from
 // GitHub client-side and rendered as markdown.
@@ -908,26 +852,6 @@ function readmeTab(s: AppState): string {
     return `<div style="padding:24px;background:${C.panel};border:1px solid ${C.line};border-radius:12px;color:${C.muted};font-size:14px">No README found in the repository.${viewLink}</div>`;
 }
 
-// The grid of subpackage cards. Each opens the subpackage's own page in-app
-// (data-act=open-sub) at /{owner}/{repository}/{id}.
-function subpackageCards(p: Package): string {
-    return p.subpackages
-        .map(
-            (e: Subpackage) => `
-      <a href="${pkgPath(p)}/${escAttr(e.id)}" data-act="open-sub" data-arg="${escAttr(e.id)}" class="ext-card" style="text-decoration:none;display:block;background:${C.deep};border:1px solid ${C.line};border-radius:12px;padding:16px 18px;cursor:pointer">
-        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${C.lilac}">${esc(e.id)}</span>
-          ${stabilityPill(e.stability)}
-          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">v${esc(e.version)}</span>
-          <span style="margin-left:auto;color:${C.muted};font-size:12px">open →</span>
-        </div>
-        <p style="font-size:13.5px;line-height:1.55;color:${C.soft};margin:0 0 10px">${esc(e.description)}</p>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};margin-bottom:8px">import <span style="color:${C.lilac}">"${esc(e.import)}"</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${tagPills(e.tags || [])}</div>
-      </a>`,
-        )
-        .join("");
-}
 
 function reviewsTab(s: AppState): string {
     const p = s.pkg!;
@@ -1190,7 +1114,7 @@ function dependentsTab(s: AppState): string {
 // depRow renders one dependency: a card link when it is a registry package, else
 // the bare module path with a source link.
 function depRow(s: AppState, module: string): string {
-        const pkg = (s.registry?.packages || []).find((x) => x.id.toLowerCase() === module.replace(/^github\.com\//, "").toLowerCase());
+    const pkg = (s.registry?.packages || []).find((x) => x.id.toLowerCase() === module.toLowerCase());
     if (pkg) return pkgLinkRow(pkg);
     const gh = /^github\.com\//.test(module) ? `https://${module}` : "";
     return `<div style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
@@ -1236,18 +1160,28 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
     const deprecated = v.deprecated
         ? `<span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:#ffb4d2;background:#3a1f34;border:1px solid #6b3453;padding:2px 7px;border-radius:100px">deprecated</span>`
         : "";
-    const hidden = v.hidden
-        ? `<span title="Placeholder release — freely re-published and replaced by the first real version" style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;color:${C.muted};background:${C.deep};border:1px solid ${C.line2};padding:2px 7px;border-radius:100px">hidden</span>`
-        : "";
     const commit = v.commit
         ? `<a href="${escAttr(p.repository)}/commit/${escAttr(v.commit)}" target="_blank" rel="noopener" title="${escAttr(v.commit)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.lilac};background:${C.deep};border:1px solid ${C.line};padding:2px 7px;border-radius:6px">⑂ ${esc(shortHash(v.commit))}</a>`
         : "";
+    const providers = (v.providers || [])
+        .map(
+            (provider) => `<div style="padding:8px 0;border-top:1px solid ${C.line}">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:${C.lilac};word-break:break-all">${esc(provider.id)}</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:3px;word-break:break-all">provider ${esc(provider.importPath)}</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:2px;word-break:break-all">definition ${esc(provider.definitionDigest)}</div>
+                </div>`,
+        )
+        .join("");
+    const integrity = `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};line-height:1.5;margin-top:10px;word-break:break-all">
+                  <div>source ${esc(v.sourceChecksum)}</div>
+                  <div>release ${esc(v.releaseFingerprint)}</div>
+                </div>`;
     return `
             <div style="display:grid;grid-template-columns:150px 1fr;gap:16px;padding:18px 20px;border-top:${first ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.text}">${esc(v.version)}</span>
-                  ${latest}${deprecated}${hidden}
+                  ${latest}${deprecated}
                 </div>
                 <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted};margin-bottom:7px">${esc(relative(v.publishedAt))}</div>
                 ${commit}
@@ -1258,6 +1192,7 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
                   <span style="flex:1;max-width:180px;height:5px;background:${C.deep};border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${v.installShare}%;background:linear-gradient(90deg,${C.violet},${C.lilac})"></span></span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${v.installShare}% of installs</span>
                 </div>
+                ${providers}${integrity}
               </div>
             </div>`;
 }
@@ -1279,7 +1214,7 @@ function pkgSidebar(s: AppState): string {
         c: b.count,
         d: b.date,
     }));
-    // The CLI is prefix-tolerant, so drop the github.com/ host for a cleaner command.
+    // Plugin IDs are full canonical paths in every surface, including commands.
     const installCmd = `wago add ${p.short}`;
 
     // A metadata cell (label + value); rendered full-width or half-width.
@@ -1315,15 +1250,27 @@ function pkgSidebar(s: AppState): string {
         <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">${platforms.length ? platforms.map((pf) => esc(pf)).join(", ") : "platform-independent"}</div>
       </div>`;
 
-    // capabilities
-    const capChips = (p.capabilities || [])
-        .map(
-            (c) =>
-                `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.pink};background:#2a1230;border:1px solid #6b3453;padding:3px 9px;border-radius:6px">⚑ ${esc(c)}</span>`,
-        )
+    // Exact, non-inheriting Wago authorities from the latest immutable definitions.
+    const authorityRows = (p.authorities || [])
+        .map((authority) => {
+            const modules = authority.scope?.modules?.length
+                ? `modules: ${authority.scope.modules.join(", ")}`
+                : "";
+            const limits = authority.scope?.maxInstances
+                ? `max ${authority.scope.maxInstances.toLocaleString()} instances · ${formatBytes(authority.scope.maxMemoryBytes || 0)}`
+                : "";
+            const scope = modules || limits;
+            const optional = authority.mode === "optional";
+            return `<div style="padding:8px 0;border-top:1px solid ${C.line}">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${optional ? C.lilac : C.pink}">⚑ ${esc(authority.name)}</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};border:1px solid ${C.line2};padding:1px 5px;border-radius:4px">${esc(authority.mode)}</span></div>
+              ${authority.providerId ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:4px;word-break:break-word">from ${esc(authority.providerId)}</div>` : ""}
+              ${scope ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.dim};margin-top:4px;word-break:break-word">${esc(scope)}</div>` : ""}
+              <div style="font-size:11.5px;line-height:1.4;color:${C.muted};margin-top:3px">${esc(authority.reason)}</div>
+            </div>`;
+        })
         .join("");
-    const capSection = capChips
-        ? `<div style="padding:15px 0;border-top:1px solid ${C.line}"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:10px">Capabilities</div><div style="display:flex;gap:6px;flex-wrap:wrap">${capChips}</div></div>`
+    const capSection = authorityRows
+        ? `<div style="padding:15px 0 7px;border-top:1px solid ${C.line}"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:4px">Requested authorities</div>${authorityRows}</div>`
         : "";
 
     // keywords — moved out of the header, npm-style at the bottom

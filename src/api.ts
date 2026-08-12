@@ -32,13 +32,13 @@ type RawPackage = Partial<Package> & { name?: string; short?: string };
 // ── remote helpers ──────────────────────────────────────────────────────────
 
 async function apiGet<T>(path: string): Promise<T> {
-    const res = await fetch(`${API_BASE}${canonicalPackageAPIPath(path)}`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
     if (!res.ok) throw new Error(`${path} → ${res.status}`);
     return (await res.json()) as T;
 }
 
 async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${API_BASE}${canonicalPackageAPIPath(path)}`, {
+    const res = await fetch(`${API_BASE}${path}`, {
         method,
         credentials: "include",
         headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -48,12 +48,11 @@ async function apiSend<T>(path: string, method: string, body?: unknown): Promise
     return (await res.json()) as T;
 }
 
-// The API keeps a package ID in one path parameter. IDs are canonical
-// owner/repository strings, so encode their slash before appending an operation.
-function canonicalPackageAPIPath(path: string): string {
-    return path.replace(/^\/api\/packages\/([^/]+)\/([^/]+)(\/.*)?$/, (_all, owner, repo, suffix = "") =>
-        `/api/packages/${encodeURIComponent(`${owner}/${repo}`)}${suffix}`,
-    );
+// A full canonical module ID occupies one API path parameter, so all of its
+// slashes are percent-encoded. Public website routes deliberately keep those
+// slashes literal; the two URL spaces have different jobs.
+function packageAPIPath(id: string, suffix = ""): string {
+    return `/api/packages/${encodeURIComponent(id)}${suffix}`;
 }
 
 // ── registry ────────────────────────────────────────────────────────────────
@@ -114,20 +113,22 @@ export function normalizePackage(raw: RawPackage): Package {
     const installsMonth = raw.installsMonth ?? installsWeek;
     const tags = raw.tags || [];
     const keywords = raw.keywords || raw.tags || [];
-    // During the breaking backend rollout, normalize the live legacy shape
-    // ({ ownerLogin: "wago-org", short: "wasi" }) into the one canonical ID
-    // shown everywhere in the UI. New API payloads already provide `id`.
-    const id = raw.id || (raw.ownerLogin && raw.short ? `${raw.ownerLogin}/${raw.short}` : raw.short) || "";
+    // Public v1 responses expose the full canonical source module as `id`.
+    // `short` remains an internal/social endpoint key only.
+    const module = raw.module || raw.id || raw.name || "";
+    const id = module;
+    const storageKey = raw.short || module;
     return {
         id,
-        short: id,
-        module: raw.id ? `github.com/${raw.id}` : raw.name || (id ? `github.com/${id}` : ""),
+        short: storageKey,
+        module,
+        displayName: raw.displayName,
         description: raw.description || "",
         category: raw.category || "",
         tags,
         keywords,
         // Precomputed once so realtime search is a plain substring scan per keystroke.
-        search: `${id} ${raw.description || ""} ${tags.join(" ")} ${keywords.join(" ")}`.toLowerCase(),
+        search: `${module} ${raw.description || ""} ${tags.join(" ")} ${keywords.join(" ")}`.toLowerCase(),
         license: raw.license || "",
         repository: raw.repository || "",
         homepage: raw.homepage,
@@ -138,13 +139,23 @@ export function normalizePackage(raw: RawPackage): Package {
         canManage: raw.canManage,
         allowedPublishers: raw.allowedPublishers,
         pendingPublishers: raw.pendingPublishers,
-        dependencies: (raw.dependencies || []).map((d) => d.replace(/^github\.com\//, "")),
+        dependencies: raw.dependencies || [],
         deprecatedMessage: raw.deprecatedMessage,
         compatibility: raw.compatibility || { engines: {}, platforms: [] },
-        capabilities: raw.capabilities || [],
+        authorities:
+            latest?.providers?.flatMap((provider) =>
+                (provider.definition.authorities || []).map((authority) => ({
+                    ...authority,
+                    providerId: provider.id,
+                })),
+            ) ||
+            raw.authorities ||
+            [],
+        providerIds:
+            latest?.providers?.map((provider) => provider.id) || raw.providerIds || [],
         authors: raw.authors || [],
-        contributors: raw.contributors || [],
         subpackages: raw.subpackages || [],
+        contributors: raw.contributors || [],
         version: raw.version || latest?.version || "",
         latestVersion: raw.latestVersion || latest?.version || "",
         versions,
@@ -308,7 +319,7 @@ export async function deleteEmail(email: string): Promise<UserEmail[]> {
 
 export async function loadPackage(short: string, fallback: Package): Promise<Package> {
     try {
-        return normalizePackage(await apiGet<RawPackage>(`/api/packages/${short}`));
+        return normalizePackage(await apiGet<RawPackage>(packageAPIPath(short)));
     } catch {
         return fallback;
     }
@@ -320,7 +331,7 @@ export async function setStar(
     pkg: Package,
     on: boolean,
 ): Promise<{ stars: number; starred: boolean }> {
-    return apiSend(`/api/packages/${pkg.short}/star`, on ? "POST" : "DELETE");
+    return apiSend(packageAPIPath(pkg.short, "/star"), on ? "POST" : "DELETE");
 }
 
 // Star (on) or unstar the package's repo on GitHub via the backend, using the
@@ -331,7 +342,7 @@ export async function githubStar(
     on: boolean,
 ): Promise<"ok" | "need_permission" | "error"> {
     try {
-        const res = await fetch(`${API_BASE}${canonicalPackageAPIPath(`/api/packages/${pkg.short}/gh-star`)}`, {
+        const res = await fetch(`${API_BASE}${packageAPIPath(pkg.short, "/gh-star")}`, {
             method: on ? "POST" : "DELETE",
             credentials: "include",
         });
@@ -382,7 +393,7 @@ export interface ReviewsResult {
 }
 
 export async function loadReviews(pkg: Package, user: User | null): Promise<ReviewsResult> {
-    const r = await apiGet<ReviewsResult>(`/api/packages/${pkg.short}/reviews`);
+    const r = await apiGet<ReviewsResult>(packageAPIPath(pkg.short, "/reviews"));
     r.reviews = r.reviews.map((rv) => decorateReview(rv, user));
     return r;
 }
@@ -409,7 +420,7 @@ export async function postReview(
     rating: number,
     body: string,
 ): Promise<void> {
-    await apiSend(`/api/packages/${pkg.short}/reviews`, "POST", { rating, body });
+    await apiSend(packageAPIPath(pkg.short, "/reviews"), "POST", { rating, body });
 }
 
 export async function deleteReview(_pkg: Package, reviewId: string): Promise<void> {
@@ -424,13 +435,13 @@ export async function voteReview(reviewId: string, dir: "up" | "down" | null): P
 
 // reportPackage flags a package for the wago moderators (any signed-in user).
 export async function reportPackage(short: string, reason: string, detail: string): Promise<void> {
-    await apiSend(`/api/packages/${short}/report`, "POST", { reason, detail });
+    await apiSend(packageAPIPath(short, "/report"), "POST", { reason, detail });
 }
 
 // takedownPackage removes a package (site admins / owner). Backed by the same
 // DELETE endpoint as owner-unpublish, now also allowed for admins.
 export async function takedownPackage(short: string): Promise<void> {
-    await apiSend(`/api/packages/${short}`, "DELETE");
+    await apiSend(packageAPIPath(short), "DELETE");
 }
 
 // loadReports fetches the moderation queue (admins only).
@@ -447,14 +458,14 @@ export async function resolveReport(id: string): Promise<void> {
 // setPublishers replaces a package's allowed-publishers list (owner / admin) —
 // used to remove an already-accepted publisher. Returns the updated package.
 export async function setPublishers(short: string, publishers: string[]): Promise<Package> {
-    const raw = await apiSend<RawPackage>(`/api/packages/${short}/publishers`, "PUT", { publishers });
+    const raw = await apiSend<RawPackage>(packageAPIPath(short, "/publishers"), "PUT", { publishers });
     return normalizePackage(raw);
 }
 
 // invitePublisher sends a pending publish invite to a GitHub login; they must
 // accept it (in their notifications) before they can publish. Owner / admin only.
 export async function invitePublisher(short: string, login: string): Promise<Package> {
-    const raw = await apiSend<RawPackage>(`/api/packages/${short}/publishers/invite`, "POST", { login });
+    const raw = await apiSend<RawPackage>(packageAPIPath(short, "/publishers/invite"), "POST", { login });
     return normalizePackage(raw);
 }
 
@@ -486,7 +497,7 @@ export async function transferPackage(
     owner: string,
 ): Promise<{ pkg: Package; invited?: string }> {
     const raw = await apiSend<RawPackage & { transferInvited?: string }>(
-        `/api/packages/${short}/transfer`,
+        packageAPIPath(short, "/transfer"),
         "POST",
         { owner },
     );
@@ -496,14 +507,14 @@ export async function transferPackage(
 // deprecatePackage marks a package deprecated (with an optional message) or undoes
 // it (owner / admin). Returns the updated package.
 export async function deprecatePackage(short: string, message: string, undo: boolean): Promise<Package> {
-    const raw = await apiSend<RawPackage>(`/api/packages/${short}/deprecate`, "POST", { message, undo });
+    const raw = await apiSend<RawPackage>(packageAPIPath(short, "/deprecate"), "POST", { message, undo });
     return normalizePackage(raw);
 }
 
 // ── comments ─────────────────────────────────────────────────────────────────
 
 export async function loadComments(pkg: Package, user: User | null): Promise<Comment[]> {
-    const r = await apiGet<{ comments: Comment[] }>(`/api/packages/${pkg.short}/comments`);
+    const r = await apiGet<{ comments: Comment[] }>(packageAPIPath(pkg.short, "/comments"));
     return r.comments.map((c) => {
         const name = c.author || c.login || "?";
         const login = c.login || c.author || "";
@@ -525,7 +536,7 @@ export async function postComment(
     body: string,
     parentId?: string,
 ): Promise<void> {
-    await apiSend(`/api/packages/${pkg.short}/comments`, "POST", { body, parentId });
+    await apiSend(packageAPIPath(pkg.short, "/comments"), "POST", { body, parentId });
 }
 
 // Comment votes reuse the same opaque-id vote store as reviews.
@@ -558,7 +569,7 @@ export interface InstallsResult {
 
 export async function loadInstalls(pkg: Package, days = 365): Promise<InstallsResult> {
     try {
-        return await apiGet<InstallsResult>(`/api/packages/${pkg.short}/installs?days=${days}`);
+        return await apiGet<InstallsResult>(packageAPIPath(pkg.short, `/installs?days=${days}`));
     } catch {
         return { series: [], total: 0, week: 0, weekLabel: "0" };
     }

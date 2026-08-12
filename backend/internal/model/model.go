@@ -1,16 +1,9 @@
-// Package model holds the domain types for the wago plugins registry: the stored
-// records (users, packages, reviews, comments) and the rolling v0 manifest that
-// a package's release publishes. These types are the single source of truth for
-// the JSON shapes the store persists and the API serves.
+// Package model holds the domain types for the wago plugins registry. These
+// types are the single source of truth for the JSON shapes the store persists
+// and the API serves.
 package model
 
-import (
-	"encoding/json"
-	"errors"
-	"strings"
-)
-
-// Stability marks how settled an extension's or package's public surface is. It
+// Stability marks how settled a plugin's or package's public surface is. It
 // mirrors wago's own wago.Stability (experimental|stable|deprecated).
 type Stability string
 
@@ -20,7 +13,7 @@ const (
 	Deprecated   Stability = "deprecated"
 )
 
-// Compatibility describes the environments a package or extension supports. It is
+// Compatibility describes the environments a package or plugin supports. It is
 // the wago manifest's compatibility block: semver constraints keyed by engine
 // (wago/tinygo/go) plus supported GOOS/GOARCH platforms. This is deliberately
 // coarse — it is NOT a per-syscall or per-function compatibility matrix.
@@ -29,127 +22,27 @@ type Compatibility struct {
 	Platforms []string          `json:"platforms,omitempty"`
 }
 
-// Subpackage is one subpackage exposed by a package's wago-plugin.json manifest.
-// Import is the Go import path of the subpackage; ID is its stable dotted id.
-// (Each subpackage provides a wago Extension, but at the registry/manifest layer
-// we call the shipped unit a "subpackage".)
-type Subpackage struct {
-	Import      string        `json:"import"`
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	Version     string        `json:"version"`
-	Description string        `json:"description"`
-	Stability   Stability     `json:"stability"`
-	Tags        []string      `json:"tags"`
-	Compat      Compatibility `json:"compatibility"`
-	Readme      string        `json:"readme,omitempty"`
-}
-
-// Manifest is the rolling v0 wago.json a package publishes. It is self-similar:
-// the top-level module and every subpackage share the same config shape
-// (ManifestPkg). Provenance and engines set at the module level are inherited by
-// subpackages that omit them.
-type Manifest struct {
-	ManifestPkg
-	Schema string `json:"$schema"`
-}
-
-// ManifestPkg is one node of a self-similar wago.json — the module itself or a
-// subpackage. Identity is the module path; there is no separate id.
-type ManifestPkg struct {
-	Module      string            `json:"module"`
-	Name        string            `json:"name,omitempty"`
-	Version     string            `json:"version,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Stability   Stability         `json:"stability,omitempty"`
-	License     string            `json:"license,omitempty"`
-	Homepage    string            `json:"homepage,omitempty"`
-	Repository  string            `json:"repository,omitempty"`
-	Authors     []string          `json:"authors,omitempty"`
-	Keywords    []string          `json:"keywords,omitempty"`
-	Engines     map[string]string `json:"engines,omitempty"`
-	Platforms   []string          `json:"platforms,omitempty"`
-	Plugins     map[string]string `json:"plugins,omitempty"` // GitHub-relative plugin IDs to version constraints
-	Subpackages []ManifestSub     `json:"subpackages,omitempty"`
-}
-
-// ManifestSub is a subpackages[] element. It may be written inline as an object or
-// as a "./path/wago.json" string — but the string form must be inlined by the
-// publisher before upload (only they have the files), so the string form is
-// rejected here with a clear message.
-type ManifestSub struct {
-	ManifestPkg
-}
-
-func (s *ManifestSub) UnmarshalJSON(b []byte) error {
-	if len(b) > 0 && b[0] == '"' {
-		return errors.New("subpackage path references must be inlined before publishing")
-	}
-	type alias ManifestSub
-	return json.Unmarshal(b, (*alias)(s))
-}
-
-// ResolvedSubpackages flattens the manifest's subpackages into stored records,
-// applying module-level inheritance (provenance + engines/platforms) and deriving
-// each stored id/import from the module path. This is the bridge from the
-// self-similar publish format to the flat records the store and API serve.
-func (m Manifest) ResolvedSubpackages() []Subpackage {
-	out := make([]Subpackage, 0, len(m.Subpackages))
-	for _, sub := range m.Subpackages {
-		s := sub.ManifestPkg
-		engines := s.Engines
-		if len(engines) == 0 {
-			engines = m.Engines
-		}
-		platforms := s.Platforms
-		if len(platforms) == 0 {
-			platforms = m.Platforms
-		}
-		out = append(out, Subpackage{
-			Import:      s.Module,
-			ID:          lastSegment(s.Module),
-			Name:        s.Name,
-			Version:     s.Version,
-			Description: s.Description,
-			Stability:   s.Stability,
-			Tags:        s.Keywords,
-			Compat:      Compatibility{Engines: engines, Platforms: platforms},
-		})
-	}
-	return out
-}
-
-// lastSegment returns the final path element of a module path (a short, URL-safe
-// id): "github.com/wago-org/wasi/p1" → "p1".
-func lastSegment(module string) string {
-	if i := strings.LastIndex(module, "/"); i >= 0 {
-		return module[i+1:]
-	}
-	return module
-}
-
 // Author is a named author with an optional GitHub login.
 type Author struct {
 	Name   string `json:"name"`
-	Github string `json:"github"`
+	Email  string `json:"email,omitempty"`
+	URL    string `json:"url,omitempty"`
+	Github string `json:"github,omitempty"`
 }
 
 // Version is a single published release of a package.
 type Version struct {
-	Version      string `json:"version"`
-	Commit       string `json:"commit"`
-	PublishedAt  string `json:"publishedAt"`
-	Notes        string `json:"notes"`
-	UnpackedKB   int    `json:"unpackedKB"`
-	Latest       bool   `json:"latest"`
-	InstallShare int    `json:"installShare"`
-	Deprecated   bool   `json:"deprecated,omitempty"`
-	// Hidden marks a placeholder release (version 0.0.0): re-publishable at any
-	// time and deleted the moment a real (>0.0.0) version ships.
-	Hidden bool `json:"hidden,omitempty"`
-	// Hash is a server-computed content fingerprint (sha256:…) of the release,
-	// making each published version tamper-evident and immutable.
-	Hash string `json:"hash,omitempty"`
+	Version            string              `json:"version"`
+	Commit             string              `json:"commit"`
+	PublishedAt        string              `json:"publishedAt"`
+	Notes              string              `json:"notes"`
+	UnpackedKB         int                 `json:"unpackedKB"`
+	Latest             bool                `json:"latest"`
+	InstallShare       int                 `json:"installShare"`
+	Deprecated         bool                `json:"deprecated,omitempty"`
+	SourceChecksum     string              `json:"sourceChecksum"`
+	Providers          []PublishedProvider `json:"providers"`
+	ReleaseFingerprint string              `json:"releaseFingerprint"`
 }
 
 // Report is a user's moderation flag on a package, kept in a queue for admins to
@@ -307,6 +200,7 @@ type Comment struct {
 type Package struct {
 	Name        string    `json:"name"` // module path
 	Short       string    `json:"short"`
+	DisplayName string    `json:"displayName,omitempty"`
 	Description string    `json:"description"`
 	Category    string    `json:"category"`
 	Tags        []string  `json:"tags"`
@@ -322,14 +216,13 @@ type Package struct {
 	// rights, beyond the repo's author/admins (who can always publish). Empty by
 	// default: publishing is author-only until the owner configures this.
 	AllowedPublishers []string      `json:"allowedPublishers,omitempty"`
-	Dependencies      []string      `json:"dependencies,omitempty"` // module paths this package depends on
+	Dependencies      []string      `json:"dependencies,omitempty"` // canonical plugin IDs used by the latest release
 	Readme            string        `json:"readme,omitempty"`
 	DeprecatedMessage string        `json:"deprecatedMessage,omitempty"`
 	Compat            Compatibility `json:"compatibility"`
-	Capabilities      []string      `json:"capabilities"`
 	Authors           []Author      `json:"authors"`
+	Subpackages       []PackageSub  `json:"subpackages,omitempty"` // source-package metadata, never provider discovery
 	Contributors      []string      `json:"contributors"`
-	Subpackages       []Subpackage  `json:"subpackages"`
 	Rating            float64       `json:"rating"`
 	RatingCount       int           `json:"ratingCount"`
 	Score             int           `json:"score"`

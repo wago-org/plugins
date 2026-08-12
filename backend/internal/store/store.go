@@ -10,12 +10,28 @@ type InstallPoint struct {
 	Count int    `json:"count"`
 }
 
+// MigrationReport describes a one-time startup store upgrade. It is exposed as
+// a separate optional interface so API store fakes do not need to implement it.
+type MigrationReport struct {
+	FromVersion         int
+	ToVersion           int
+	CanonicalPackages   int
+	QuarantinedPackages int
+}
+
+// MigrationReporter is implemented by persistent stores that upgraded data in
+// the current process. A second open returns no report because the marker makes
+// the migration idempotent.
+type MigrationReporter interface {
+	StartupMigration() (MigrationReport, bool)
+}
+
 // Store is the persistence contract the API layer depends on. All methods are
 // safe for concurrent use and persist mutations before returning.
 type Store interface {
 	// Packages.
 	ListPackages() []model.Package
-	// GetPackage matches by short id first, then by full module name.
+	// GetPackage matches the exact canonical package key.
 	GetPackage(id string) (model.Package, bool)
 	UpsertPackage(p model.Package) error
 	DeletePackage(short string) error

@@ -15,21 +15,29 @@ import (
 	"github.com/wago-org/registry-backend/internal/model"
 )
 
-// releaseHash is a content fingerprint of a published release: a SHA-256 over the
-// module path, version, commit, notes, unpacked size and subpackage manifest.
-// json.Marshal sorts map keys, so this is deterministic. It makes each version
-// tamper-evident — combined with the append-only, republish-rejected version
-// list, a real release is effectively immutable once published. (The 0.0.0
-// placeholder is the deliberate exception: hidden and freely re-publishable.)
-func releaseHash(module string, v model.Version, subs []model.Subpackage) string {
+// releaseFingerprint covers every immutable input a consumer relies on,
+// including source checksum and the complete provider definitions. Timestamps
+// and popularity metadata are deliberately excluded.
+func releaseFingerprint(module string, v model.Version) string {
+	providers := append([]model.PublishedProvider(nil), v.Providers...)
+	sort.Slice(providers, func(i, j int) bool {
+		if providers[i].ID != providers[j].ID {
+			return providers[i].ID < providers[j].ID
+		}
+		if providers[i].ImportPath != providers[j].ImportPath {
+			return providers[i].ImportPath < providers[j].ImportPath
+		}
+		return providers[i].DefinitionDigest < providers[j].DefinitionDigest
+	})
 	payload := struct {
-		Module      string             `json:"module"`
-		Version     string             `json:"version"`
-		Commit      string             `json:"commit"`
-		Notes       string             `json:"notes"`
-		UnpackedKB  int                `json:"unpackedKB"`
-		Subpackages []model.Subpackage `json:"subpackages"`
-	}{module, v.Version, v.Commit, v.Notes, v.UnpackedKB, subs}
+		Module         string                    `json:"module"`
+		Version        string                    `json:"version"`
+		SourceChecksum string                    `json:"sourceChecksum"`
+		Commit         string                    `json:"commit"`
+		Notes          string                    `json:"notes"`
+		UnpackedKB     int                       `json:"unpackedKB"`
+		Providers      []model.PublishedProvider `json:"providers"`
+	}{module, v.Version, v.SourceChecksum, v.Commit, v.Notes, v.UnpackedKB, providers}
 	b, _ := json.Marshal(payload)
 	sum := sha256.Sum256(b)
 	return "sha256:" + hex.EncodeToString(sum[:])
@@ -37,13 +45,13 @@ func releaseHash(module string, v model.Version, subs []model.Subpackage) string
 
 // publishRequest is the body of POST /api/publish.
 type publishRequest struct {
-	Manifest   model.Manifest `json:"manifest"`
-	Version    string         `json:"version"`
-	Commit     string         `json:"commit"`
-	Notes      string         `json:"notes"`
-	UnpackedKB int            `json:"unpackedKB"`
-	Category   string         `json:"category"`
-	Tags       []string       `json:"tags"`
+	Manifest   model.Manifest           `json:"manifest"`
+	Version    string                   `json:"version"`
+	Checksum   string                   `json:"checksum"`
+	Providers  []model.ProviderManifest `json:"providers"`
+	Commit     string                   `json:"commit"`
+	Notes      string                   `json:"notes"`
+	UnpackedKB int                      `json:"unpackedKB"`
 }
 
 // authorizePublish decides whether u may publish the package pointing at
@@ -88,37 +96,19 @@ func hasWrite(perm string) bool {
 	return false
 }
 
-// normalizeDeps trims, dedupes, and drops empties + self-references from a
-// manifest's dependency list.
-func normalizeDeps(list []string, self string) []string {
-	seen := map[string]bool{}
-	out := []string{}
-	for _, d := range list {
-		d = strings.TrimSpace(d)
-		if d == "" || strings.EqualFold(d, self) {
-			continue
-		}
-		if key := strings.ToLower(d); !seen[key] {
-			seen[key] = true
-			out = append(out, d)
+func providerDependencies(providers []model.PublishedProvider) []string {
+	seen := map[string]struct{}{}
+	for _, provider := range providers {
+		for _, dependency := range provider.Definition.Requires {
+			seen[dependency.ID] = struct{}{}
 		}
 	}
+	out := make([]string, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	sort.Strings(out)
 	return out
-}
-
-// pluginDependencies converts v0 manifest plugin keys into canonical Go module
-// paths for the registry dependency graph.
-func pluginDependencies(plugins map[string]string, self string) []string {
-	list := make([]string, 0, len(plugins))
-	for id := range plugins {
-		id = strings.TrimSpace(id)
-		if id != "" {
-			list = append(list, "github.com/"+id)
-		}
-	}
-	list = normalizeDeps(list, self)
-	sort.Strings(list)
-	return list
 }
 
 // containsFold reports whether list contains s, case-insensitively.
@@ -138,21 +128,55 @@ func sameRepo(a, b string) bool {
 	return aok && bok && strings.EqualFold(ao, bo) && strings.EqualFold(ar, br)
 }
 
-// shortFromModule derives a package short id from a module path: the last path
-
-// shortFromModule derives a package short id from a module path: the last path
-// element with a leading "wago-" or "wago_" stripped.
+// shortFromModule returns the package's stable registry key. The v1 system uses
+// the full canonical source module everywhere; HTTP endpoints percent-encode the
+// slashes when this key occupies one path parameter.
 func shortFromModule(module string) string {
 	const github = "github.com/"
-	if !strings.HasPrefix(module, github) {
+	if !strings.HasPrefix(module, github) || model.ValidatePluginID(module) != nil {
 		return ""
 	}
-	id := strings.TrimPrefix(module, github)
-	parts := strings.Split(id, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+	parts := strings.Split(strings.TrimPrefix(module, github), "/")
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 		return ""
 	}
-	return id
+	return module
+}
+
+func moduleBelongsToRepository(module, repository string) bool {
+	owner, repo, ok := parseGitHubRepo(repository)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(module, "github.com/"), "/")
+	return len(parts) >= 2 && strings.EqualFold(parts[0], owner) && strings.EqualFold(parts[1], repo)
+}
+
+// moduleReleaseTag maps a canonical Go module version to its repository tag.
+// Nested modules prefix tags with their module subdirectory; a v2+ module-path
+// suffix is not part of that prefix.
+func moduleReleaseTag(module, version string) string {
+	subdirectory := moduleReleaseSubdirectory(module, version)
+	if subdirectory == "" {
+		return version
+	}
+	return subdirectory + "/" + version
+}
+
+// moduleReleaseSubdirectory is the Go command's Origin.Subdir for a module.
+// The repository-relative v2+ module-path suffix selects the semantic major,
+// but is not part of either the repository subdirectory or its tag prefix.
+func moduleReleaseSubdirectory(module, version string) string {
+	parts := strings.Split(strings.TrimPrefix(module, "github.com/"), "/")
+	if len(parts) <= 2 {
+		return ""
+	}
+	subdirectory := parts[2:]
+	major, _, _ := strings.Cut(strings.TrimPrefix(version, "v"), ".")
+	if major != "" && major != "0" && major != "1" && subdirectory[len(subdirectory)-1] == "v"+major {
+		subdirectory = subdirectory[:len(subdirectory)-1]
+	}
+	return strings.Join(subdirectory, "/")
 }
 
 // handlePublish creates or updates a package from a manifest and a release.
@@ -163,44 +187,90 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req publishRequest
-	if err := decodeJSON(w, r, &req, 1<<20); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "invalid json")
+	if err := decodeJSONStrict(w, r, &req, 2<<20); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid publish request: "+err.Error())
 		return
 	}
-	if req.Manifest.Schema != "https://wago.sh/v0/schema.json" {
-		httpx.WriteError(w, http.StatusBadRequest, `manifest.$schema must be "https://wago.sh/v0/schema.json"`)
+	if err := req.Manifest.Validate(); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if strings.TrimSpace(req.Manifest.Module) == "" {
-		httpx.WriteError(w, http.StatusBadRequest, "manifest.module is required")
+	version, err := canonicalModuleVersion(req.Version)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "version: "+err.Error())
 		return
 	}
-	if strings.TrimSpace(req.Version) == "" {
-		httpx.WriteError(w, http.StatusBadRequest, "version is required")
+	req.Version = version
+	if err := model.ValidateSourceChecksum(req.Checksum); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.UnpackedKB < 0 {
+		httpx.WriteError(w, http.StatusBadRequest, "unpackedKB must not be negative")
+		return
+	}
+	if req.UnpackedKB > 1<<30 {
+		httpx.WriteError(w, http.StatusBadRequest, "unpackedKB exceeds the registry limit")
+		return
+	}
+	if !fullGitCommit(req.Commit) || len(req.Notes) > 64<<10 {
+		httpx.WriteError(w, http.StatusBadRequest, "commit must be a full lowercase Git SHA and notes must not exceed 64 KiB")
+		return
+	}
+	manifest := *req.Manifest.Package
+	if err := model.ValidateProviderCatalog(manifest, req.Version, req.Providers); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	short := shortFromModule(req.Manifest.Module)
+	short := shortFromModule(manifest.Module)
 	if short == "" {
-		httpx.WriteError(w, http.StatusBadRequest, "manifest.module must be a GitHub owner/repository module path")
+		httpx.WriteError(w, http.StatusBadRequest, "manifest.package.module must be a canonical github.com source module path")
 		return
 	}
+	if !moduleBelongsToRepository(manifest.Module, manifest.Repository) {
+		httpx.WriteError(w, http.StatusBadRequest, "manifest.package.repository must be the exact GitHub repository containing manifest.package.module")
+		return
+	}
+	unlockPackage := a.lockPackageWrite(short)
+	defer unlockPackage()
 	p, existed := a.Store.GetPackage(short)
 	if !existed {
 		p = model.Package{Short: short, CreatedAt: time.Now().UTC().Format(time.RFC3339)}
 	}
 
 	// A published package is pinned to its repository; a re-publish can't swap it.
-	if existed && p.Repository != "" && !sameRepo(p.Repository, req.Manifest.Repository) {
-		httpx.WriteError(w, http.StatusForbidden, fmt.Sprintf("%s is published from %s; change it there, not to %s", short, p.Repository, req.Manifest.Repository))
+	if existed && p.Repository != "" && !sameRepo(p.Repository, manifest.Repository) {
+		httpx.WriteError(w, http.StatusForbidden, fmt.Sprintf("%s is published from %s; change it there, not to %s", short, p.Repository, manifest.Repository))
 		return
 	}
 
 	// Authorization: publishing is author-only (the repo's owner / org admin) by
 	// default; other people publish only if the owner has added them to the
 	// package's allowed publishers.
-	if err := a.authorizePublish(u, req.Manifest.Repository, p, existed); err != nil {
+	if err := a.authorizePublish(u, manifest.Repository, p, existed); err != nil {
 		httpx.WriteError(w, http.StatusForbidden, err.Error())
+		return
+	}
+	owner, repo, _ := parseGitHubRepo(manifest.Repository)
+	releaseTag := moduleReleaseTag(manifest.Module, req.Version)
+	resolvedCommit, err := a.GitHub.ResolveTagCommit(u.GitHubToken, owner, repo, releaseTag)
+	if err != nil {
+		httpx.WriteError(w, http.StatusUnprocessableEntity, fmt.Sprintf("can't resolve release tag %s: %v", releaseTag, err))
+		return
+	}
+	if resolvedCommit != req.Commit {
+		httpx.WriteError(w, http.StatusUnprocessableEntity, fmt.Sprintf("submitted commit %s does not match release tag %s commit %s", req.Commit, releaseTag, resolvedCommit))
+		return
+	}
+	if a.sourceVerifier == nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "source verification is not configured")
+		return
+	}
+	if err := a.sourceVerifier.Verify(r.Context(), model.PluginSource{
+		Module: manifest.Module, Version: req.Version, Checksum: req.Checksum,
+	}, resolvedCommit, manifest, req.Providers); err != nil {
+		httpx.WriteError(w, http.StatusUnprocessableEntity, "source verification failed: "+err.Error())
 		return
 	}
 
@@ -209,65 +279,50 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 		p.OwnerLogin = u.Login
 	}
 
-	p.Name = req.Manifest.Module
-	// Carry the top-level manifest metadata onto the package (subpackage roll-up
-	// below only fills what the top level leaves blank).
-	if v := req.Manifest.Repository; v != "" {
-		p.Repository = v
-	}
-	if v := req.Manifest.Homepage; v != "" {
-		p.Homepage = v
-	}
-	if v := req.Manifest.License; v != "" {
-		p.License = v
-	}
-	if v := req.Manifest.Description; v != "" {
-		p.Description = v
-	}
-	if v := req.Manifest.Stability; v != "" {
-		p.Stability = v
-	}
-	if len(req.Manifest.Keywords) > 0 {
-		p.Keywords = unionStrings(p.Keywords, req.Manifest.Keywords)
-	}
-	// Dependencies are replaced from the v0 plugin map each publish. The map is
-	// the source of truth; keys are canonicalized, sorted, and self references
-	// are dropped.
-	p.Dependencies = pluginDependencies(req.Manifest.Plugins, req.Manifest.Module)
-	if len(req.Manifest.Authors) > 0 {
-		p.Authors = parseAuthors(req.Manifest.Authors)
-	} else if len(p.Authors) == 0 {
-		// No authors declared: default to the publisher (a verified author of the
-		// repo), so the package still shows a real GitHub identity + avatar.
-		name := u.Name
-		if name == "" {
-			name = u.Login
-		}
-		p.Authors = []model.Author{{Name: name, Github: u.Login}}
-	}
-	subs := req.Manifest.ResolvedSubpackages()
-	p.Subpackages = subs
-	aggregateFromSubpackages(&p, subs)
-
-	if req.Category != "" {
-		p.Category = req.Category
-	}
-	p.Tags = unionStrings(p.Tags, req.Tags)
-	if req.UnpackedKB > 0 {
-		p.UnpackedKB = req.UnpackedKB
+	p.Name = manifest.Module
+	if p.Repository == "" {
+		p.Repository = manifest.Repository
 	}
 
 	// Add the caller as a contributor (deduped).
 	p.Contributors = unionStrings(p.Contributors, []string{u.Login})
 
-	nv := model.Version{
-		Version:     req.Version,
-		Commit:      req.Commit,
-		Notes:       req.Notes,
-		UnpackedKB:  req.UnpackedKB,
-		PublishedAt: time.Now().UTC().Format(time.RFC3339),
+	providers := make([]model.PublishedProvider, 0, len(req.Providers))
+	for _, declared := range req.Providers {
+		definition, err := model.CanonicalPluginDefinition(declared.Definition)
+		if err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, "invalid plugin definition: "+err.Error())
+			return
+		}
+		providers = append(providers, model.PublishedProvider{
+			ID:         definition.ID,
+			ImportPath: declared.ImportPath,
+			Source: model.PluginSource{
+				Module: manifest.Module, Version: req.Version, Checksum: req.Checksum,
+			},
+			Definition:       definition,
+			DefinitionDigest: declared.DefinitionDigest,
+		})
 	}
-	nv.Hash = releaseHash(p.Name, nv, p.Subpackages)
+	// Provider IDs are globally unique across source modules. Serialize the
+	// catalog snapshot, uniqueness proof, and package write so two concurrent
+	// first publishes cannot both claim the same ID from different modules.
+	a.catalogWrites.Lock()
+	defer a.catalogWrites.Unlock()
+	if err := a.validateProviderGraph(providers); err != nil {
+		httpx.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	nv := model.Version{
+		Version:        req.Version,
+		Commit:         req.Commit,
+		Notes:          req.Notes,
+		UnpackedKB:     req.UnpackedKB,
+		PublishedAt:    time.Now().UTC().Format(time.RFC3339),
+		SourceChecksum: req.Checksum,
+		Providers:      providers,
+	}
+	nv.ReleaseFingerprint = releaseFingerprint(manifest.Module, nv)
 
 	versions, conflict := applyRelease(p.Versions, nv)
 	if conflict {
@@ -275,6 +330,10 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.Versions = versions
+	if packageVersionIsLatest(p, nv.Version) {
+		applyPackageManifest(&p, manifest, req.UnpackedKB)
+	}
+	p.Dependencies = providerDependencies(p.LatestVersion().Providers)
 	p.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 
 	if err := a.Store.UpsertPackage(p); err != nil {
@@ -284,104 +343,97 @@ func (a *App) handlePublish(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, a.decoratePackage(p, u.ID))
 }
 
-// placeholderVersion is the reserved version that is always hidden, freely
-// re-publishable, and deleted when any real version ships.
-const placeholderVersion = "0.0.0"
-
-// applyRelease returns the version list after publishing nv, and whether the
-// publish conflicts with an existing immutable version.
-//
-// Version 0.0.0 is a hidden placeholder: it never conflicts (re-publish over it
-// anytime) and it is dropped whenever anything is published — replaced on a
-// placeholder re-publish, deleted the moment a real (>0.0.0) release ships. Every
-// other version is append-only and immutable, so re-publishing one conflicts.
-func applyRelease(existing []model.Version, nv model.Version) (versions []model.Version, conflict bool) {
-	placeholder := nv.Version == placeholderVersion
-	if !placeholder {
-		for _, v := range existing {
-			if v.Version == nv.Version {
-				return nil, true
-			}
+func fullGitCommit(value string) bool {
+	if len(value) != 40 {
+		return false
+	}
+	for _, char := range value {
+		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
+			return false
 		}
 	}
-	kept := make([]model.Version, 0, len(existing)+1)
-	for _, v := range existing {
-		if v.Version == placeholderVersion {
-			continue // transient: superseded by this publish
-		}
-		v.Latest = false
-		kept = append(kept, v)
-	}
-	nv.Latest = true
-	nv.Hidden = placeholder
-	return append(kept, nv), false
+	return true
 }
 
-// aggregateFromSubpackages rolls up package-level metadata from a manifest's
-// subpackages: the union of tags, description/stability from the first non-empty
-// subpackage, and the first subpackage's compatibility as the package-level
-// compatibility.
-func aggregateFromSubpackages(p *model.Package, subs []model.Subpackage) {
-	for _, e := range subs {
-		p.Tags = unionStrings(p.Tags, e.Tags)
-		if p.Description == "" && e.Description != "" {
-			p.Description = e.Description
-		}
-		if p.Stability == "" && e.Stability != "" {
-			p.Stability = e.Stability
-		}
-	}
-	if len(subs) > 0 {
-		p.Compat = subs[0].Compat
-	}
+func packageVersionIsLatest(p model.Package, version string) bool {
+	return strings.TrimPrefix(p.LatestVersion().Version, "v") == strings.TrimPrefix(version, "v")
 }
 
-// parseAuthors turns manifest author strings into model.Authors. Authors are
-// GitHub-identity-first: it recognises a trailing handle in "Name <handle>" or
-// "Name (@handle)", a bare "@handle", or a bare login like "octocat" (so
-// authors: ["octocat"] gets an avatar). A string with spaces or non-login
-// characters is treated as a display name only.
-func parseAuthors(list []string) []model.Author {
-	out := make([]model.Author, 0, len(list))
-	for _, raw := range list {
-		s := strings.TrimSpace(raw)
-		if s == "" {
-			continue
-		}
-		a := model.Author{Name: s}
-		switch {
-		case strings.IndexAny(s, "<(") >= 0:
-			i := strings.IndexAny(s, "<(")
-			a.Name = strings.TrimSpace(s[:i])
-			a.Github = strings.TrimPrefix(strings.Trim(s[i:], "<>()@ "), "@")
-		case strings.HasPrefix(s, "@"):
-			a.Name = strings.TrimPrefix(s, "@")
-			a.Github = a.Name
-		case isGitHubLogin(s):
-			a.Github = s // bare login → treat as a GitHub handle
-		}
-		out = append(out, a)
+// applyPackageManifest projects display/source-package metadata from the
+// greatest semantic release. Publishing an older release must not roll the
+// package page back while the newer immutable provider catalog remains latest.
+func applyPackageManifest(p *model.Package, manifest model.PackageManifest, unpackedKB int) {
+	p.Name = manifest.Module
+	p.DisplayName = manifest.Name
+	p.Repository = manifest.Repository
+	p.Homepage = manifest.Homepage
+	p.License = manifest.License
+	p.Description = manifest.Description
+	p.Stability = manifest.Stability
+	p.Category = manifest.Category
+	p.Tags = append([]string(nil), manifest.Tags...)
+	p.Keywords = nil
+	p.Compat = model.Compatibility{
+		Engines: cloneStringMap(manifest.Engines), Platforms: append([]string(nil), manifest.Platforms...),
+	}
+	p.Subpackages = append([]model.PackageSub(nil), manifest.Subpackages...)
+	p.Authors = make([]model.Author, 0, len(manifest.Authors))
+	for _, author := range manifest.Authors {
+		p.Authors = append(p.Authors, model.Author{
+			Name: author.Name, Email: author.Email, URL: author.URL, Github: author.Github,
+		})
+	}
+	p.UnpackedKB = unpackedKB
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if input == nil {
+		return nil
+	}
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		out[key] = value
 	}
 	return out
 }
 
-// isGitHubLogin reports whether s is a plausible GitHub login: 1–39 chars of
-// alphanumerics and non-leading/trailing hyphens (no spaces).
-func isGitHubLogin(s string) bool {
-	if s == "" || len(s) > 39 {
-		return false
+// applyRelease returns the version list after publishing nv, and whether the
+// publish conflicts with an existing immutable version.
+func applyRelease(existing []model.Version, nv model.Version) (versions []model.Version, conflict bool) {
+	for _, v := range existing {
+		if strings.TrimPrefix(v.Version, "v") == strings.TrimPrefix(nv.Version, "v") {
+			return nil, true
+		}
 	}
-	for i, r := range s {
-		alnum := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
-		if alnum {
+	versions = append(append([]model.Version(nil), existing...), nv)
+	markLatestVersion(versions)
+	return versions, false
+}
+
+// markLatestVersion marks the greatest semantic version. Publishing an older
+// release must not silently downgrade the package's default resolution.
+func markLatestVersion(versions []model.Version) {
+	if len(versions) == 0 {
+		return
+	}
+	best := -1
+	for i := range versions {
+		versions[i].Latest = false
+		if model.ValidateVersion(versions[i].Version) != nil {
 			continue
 		}
-		if r == '-' && i > 0 && i < len(s)-1 {
+		if best < 0 {
+			best = i
 			continue
 		}
-		return false
+		if comparison, err := model.CompareVersions(versions[i].Version, versions[best].Version); err == nil && comparison >= 0 {
+			best = i
+		}
 	}
-	return true
+	if best < 0 {
+		best = len(versions) - 1
+	}
+	versions[best].Latest = true
 }
 
 // unionStrings appends items from add that are not already in base, preserving

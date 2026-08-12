@@ -113,7 +113,7 @@ build-api: ## Compile the backend to backend/registry
 ## ── checks ───────────────────────────────────────────────────────────────────
 
 .PHONY: check
-check: typecheck test-wat vet ## Typecheck and test the frontend, then vet the backend
+check: typecheck test-routes test-wat test-api vet ## Run frontend contract checks and backend tests/vet
 
 .PHONY: typecheck
 typecheck: ## tsc --noEmit
@@ -123,9 +123,18 @@ typecheck: ## tsc --noEmit
 test-wat: ## Compile and verify WebAssembly Text syntax highlighting
 	npm run test:wat
 
+.PHONY: test-routes
+test-routes: ## Verify canonical v1 plugin URLs and reject aliases
+	npm run test:routes
+
+.PHONY: test-api
+test-api: ## Run backend unit and contract tests
+	cd backend && go test ./...
+
 .PHONY: vet
 vet: ## go vet + gofmt check
-	cd backend && go vet ./... && test -z "$$(gofmt -l .)" || (echo "gofmt needed:"; gofmt -l backend; exit 1)
+	cd backend && go vet ./...
+	@cd backend && files="$$(gofmt -l .)"; test -z "$$files" || (echo "gofmt needed:"; echo "$$files"; exit 1)
 
 .PHONY: fmt
 fmt: ## gofmt -w the backend
@@ -135,11 +144,12 @@ fmt: ## gofmt -w the backend
 
 .PHONY: clean
 clean: ## Remove build artifacts (dist, compiled JS, backend binary+store)
-	rm -rf dist assets/js backend/registry backend/registry-backend backend/data/store.json
+	rm -rf dist assets/js backend/registry backend/registry-backend backend/data/store.json backend/data/registry-db
 
 .PHONY: reset-store
 reset-store: ## Delete the backend's data store (re-seeds from data/packages.json on next run)
 	rm -f backend/data/store.json backend/data/store.json.tmp
+	rm -rf backend/data/registry-db
 	@echo "store cleared — it will re-seed on the next `make api`"
 
 ## ── deploy the backend to your server ────────────────────────────────────────

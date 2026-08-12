@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify v1 routes
+        run: npm run test:routes
+
       - name: Build site
         run: npm run build
 
