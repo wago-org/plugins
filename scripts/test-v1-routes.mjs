@@ -16,6 +16,11 @@ assert.equal(
     canonicalPluginIDFromPath("/acme/plugin/provider"),
     "github.com/acme/plugin/provider",
 );
+assert.equal(
+    canonicalPluginIDFromPath("/wago-org/wasi/"),
+    "github.com/wago-org/wasi",
+    "GitHub Pages directory redirects must remain routable",
+);
 
 for (const rejected of [
     "/github.com/wago-org/wasi",
@@ -23,7 +28,7 @@ for (const rejected of [
     "/wago-org/wasi%2Fprovider",
     "/wago-org/%77asi",
     "/wago-org//wasi",
-    "/wago-org/wasi/",
+    "/wago-org/wasi//",
     "//wago-org/wasi",
     "/wago-org/plugin+bad",
     "/wago-org/.plugin",

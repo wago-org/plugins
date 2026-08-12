@@ -6,9 +6,10 @@ const pluginIDPattern = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z
 // doubled, trailing-slash, and host-prefixed forms are rejected.
 export function canonicalPluginIDFromPath(pathname: string): string | null {
     if (!pathname.startsWith("/") || pathname.startsWith("//") || pathname.includes("%")) return null;
-    const relativeID = pathname.slice(1);
+    const rawID = pathname.slice(1);
+    const relativeID = rawID.endsWith("/") ? rawID.slice(0, -1) : rawID;
     const segments = relativeID.split("/");
-    if (relativeID.startsWith("github.com/") || segments.length < 2 || segments[0].includes(".")) return null;
+    if (relativeID.endsWith("/") || relativeID.startsWith("github.com/") || segments.length < 2 || segments[0].includes(".")) return null;
     const id = `github.com/${relativeID}`;
     return id.length <= 300 && pluginIDPattern.test(id) ? id : null;
 }

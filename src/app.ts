@@ -309,6 +309,10 @@ async function route(): Promise<void> {
     // Public detail URLs omit the GitHub host, e.g. /wago-org/wasi. The router
     // restores the canonical ID, and child provider IDs resolve to their source.
     if (canonicalPluginID) {
+        const publicPath = pkgPath({ short: canonicalPluginID });
+        if (location.pathname !== publicPath) {
+            history.replaceState(history.state, "", publicPath + location.search + location.hash);
+        }
         await openPackage(canonicalPluginID, false);
         return;
     }
