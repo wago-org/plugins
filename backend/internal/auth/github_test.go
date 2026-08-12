@@ -17,7 +17,7 @@ func TestResolveTagCommitUsesAuthenticatedExactTag(t *testing.T) {
 	const commit = "0123456789abcdef0123456789abcdef01234567"
 	previousClient := githubHTTP
 	githubHTTP = &http.Client{Transport: githubRoundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.Method != http.MethodGet || request.URL.String() != "https://api.github.com/repos/acme/workers/commits/tags%2Fplugins%2Fpool%2Fv1.2.3-rc.1" {
+		if request.Method != http.MethodGet || request.URL.String() != "https://api.github.com/repos/acme/workers/commits/plugins/pool/v1.2.3-rc.1" {
 			t.Fatalf("GitHub request = %s %s", request.Method, request.URL.String())
 		}
 		if request.Header.Get("Authorization") != "Bearer github-token" || request.Header.Get("Accept") != "application/vnd.github.sha" {

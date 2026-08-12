@@ -469,7 +469,7 @@ func serveRawPublishWithGitHubCommit(t *testing.T, verifier SourceVerifier, comm
 		commitBody = []byte(`{"message":"Not Found"}`)
 	}
 	const repoEndpoint = "https://api.github.com/repos/acme/workers"
-	const commitEndpoint = repoEndpoint + "/commits/tags%2Fv0.1.0"
+	const commitEndpoint = repoEndpoint + "/commits/v0.1.0"
 	var githubRequests []string
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -567,8 +567,8 @@ func TestConcurrentPublishesCannotClaimSameProviderIDFromDifferentSourceModules(
 	}, dataStore, barrierSourceVerifier{arrived: arrived, release: release})
 
 	const repositoryEndpoint = "https://api.github.com/repos/acme/source"
-	const rootCommitEndpoint = repositoryEndpoint + "/commits/tags%2Fv0.1.0"
-	const nestedCommitEndpoint = repositoryEndpoint + "/commits/tags%2Fplugin%2Fv0.1.0"
+	const rootCommitEndpoint = repositoryEndpoint + "/commits/v0.1.0"
+	const nestedCommitEndpoint = repositoryEndpoint + "/commits/plugin/v0.1.0"
 	previousTransport := http.DefaultTransport
 	http.DefaultTransport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		if request.Method != http.MethodGet || request.Header.Get("Authorization") != "Bearer github-token" {

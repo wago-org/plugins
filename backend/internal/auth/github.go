@@ -198,7 +198,11 @@ func (g *GitHub) RepoAccess(token, owner, repo string) (perm string, isOrg bool,
 // ResolveTagCommit resolves an exact release tag to the commit GitHub serves for
 // it. The commits endpoint dereferences both annotated and lightweight tags.
 func (g *GitHub) ResolveTagCommit(token, owner, repo, tag string) (string, error) {
-	endpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/commits/" + url.PathEscape("tags/"+tag)
+	tagSegments := strings.Split(tag, "/")
+	for index := range tagSegments {
+		tagSegments[index] = url.PathEscape(tagSegments[index])
+	}
+	endpoint := "https://api.github.com/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/commits/" + strings.Join(tagSegments, "/")
 	body, err := ghGetMedia(token, endpoint, "application/vnd.github.sha")
 	if err != nil {
 		return "", err
