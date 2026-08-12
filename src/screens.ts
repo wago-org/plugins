@@ -715,6 +715,7 @@ export function filterPackages(s: AppState): Package[] {
 
 export function packageScreen(s: AppState): string {
     const p = s.pkg!;
+    const authorityCount = new Set((p.authorities || []).map((authority) => authority.name)).size;
     const tabEl = (k: string, label: string, extra = ""): string => {
         const on = s.pkgTab === k;
         return `<span data-act="tab" data-arg="${k}" style="font-size:14px;font-weight:${on ? "700" : "500"};color:${on ? C.text : C.muted};padding-bottom:12px;border-bottom:${on ? `2px solid ${C.lilac}` : "2px solid transparent"};margin-bottom:-1px;cursor:pointer;${extra}">${esc(label)}</span>`;
@@ -722,6 +723,7 @@ export function packageScreen(s: AppState): string {
     const tabs = [
         tabEl("readme", "Readme"),
         tabEl("comments", `Comments · ${s.comments.length}`),
+        tabEl("authorities", `Authorities · ${authorityCount}`),
         tabEl("dependencies", `Dependencies · ${(p.dependencies || []).length}`),
         tabEl("dependents", `Dependents · ${dependentsOf(s, p).length}`),
         tabEl("versions", `Versions · ${p.versions.length}`),
@@ -820,6 +822,8 @@ function pkgTabBody(s: AppState): string {
             return reviewsTab(s);
         case "comments":
             return commentsTab(s);
+        case "authorities":
+            return authoritiesTab(s);
         case "dependencies":
             return dependenciesTab(s);
         case "dependents":
@@ -1142,6 +1146,60 @@ function depEmpty(title: string, sub: string): string {
     </div>`;
 }
 
+// Authorities are grouped by provider so attribution appears once per group,
+// rather than once on every request. The tab preserves the exact request scope
+// and reason while keeping the package sidebar compact.
+function authoritiesTab(s: AppState): string {
+    const authorities = s.pkg!.authorities || [];
+    if (!authorities.length) {
+        return depEmpty("No requested authorities", "This plugin does not request any host authority.");
+    }
+    const groups = new Map<string, typeof authorities>();
+    for (const authority of authorities) {
+        const provider = authority.providerId || s.pkg!.id;
+        const group = groups.get(provider) || [];
+        group.push(authority);
+        groups.set(provider, group);
+    }
+    const cards = [...groups.entries()]
+        .map(([provider, requests]) => {
+            const rows = requests
+                .map((authority) => {
+                    const optional = authority.mode === "optional";
+                    const scope = authorityScopeLabel(authority);
+                    return `<div style="padding:14px 18px;border-top:1px solid ${C.line}">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${optional ? C.lilac : C.pink}">⚑ ${esc(authority.name)}</span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};border:1px solid ${C.line2};padding:2px 7px;border-radius:100px">${esc(authority.mode)}</span>
+                      </div>
+                      ${scope ? `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.dim};margin-bottom:5px">${esc(scope)}</div>` : ""}
+                      <div style="font-size:13.5px;line-height:1.5;color:${C.soft}">${esc(authority.reason)}</div>
+                    </div>`;
+                })
+                .join("");
+            return `<section style="background:${C.panel};border:1px solid ${C.line};border-radius:14px;overflow:hidden">
+              <div style="padding:13px 18px;background:${C.deep}">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.muted};margin-bottom:3px">provider</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.text};word-break:break-word">${esc(displayPluginID(provider))}</div>
+              </div>${rows}
+            </section>`;
+        })
+        .join("");
+    const unique = new Set(authorities.map((authority) => authority.name)).size;
+    return `<div>
+      <p style="font-size:13.5px;line-height:1.55;color:${C.muted};margin:0 0 16px">${unique} unique ${unique === 1 ? "authority" : "authorities"} requested across ${groups.size} ${groups.size === 1 ? "provider" : "providers"}. Requests are exact and do not inherit broader permissions.</p>
+      <div style="display:flex;flex-direction:column;gap:12px">${cards}</div>
+    </div>`;
+}
+
+function authorityScopeLabel(authority: Package["authorities"][number]): string {
+    if (authority.scope?.modules?.length) return `modules: ${authority.scope.modules.join(", ")}`;
+    if (authority.scope?.maxInstances) {
+        return `max ${authority.scope.maxInstances.toLocaleString()} instances · ${formatBytes(authority.scope.maxMemoryBytes || 0)}`;
+    }
+    return "";
+}
+
 // ── versions ─────────────────────────────────────────────────────────────────
 
 function versionsTab(s: AppState): string {
@@ -1251,27 +1309,16 @@ function pkgSidebar(s: AppState): string {
         <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">${platforms.length ? platforms.map((pf) => esc(pf)).join(", ") : "platform-independent"}</div>
       </div>`;
 
-    // Exact, non-inheriting Wago authorities from the latest immutable definitions.
-    const authorityRows = (p.authorities || [])
-        .map((authority) => {
-            const modules = authority.scope?.modules?.length
-                ? `modules: ${authority.scope.modules.join(", ")}`
-                : "";
-            const limits = authority.scope?.maxInstances
-                ? `max ${authority.scope.maxInstances.toLocaleString()} instances · ${formatBytes(authority.scope.maxMemoryBytes || 0)}`
-                : "";
-            const scope = modules || limits;
-            const optional = authority.mode === "optional";
-            return `<div style="padding:8px 0;border-top:1px solid ${C.line}">
-              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${optional ? C.lilac : C.pink}">⚑ ${esc(authority.name)}</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};border:1px solid ${C.line2};padding:1px 5px;border-radius:4px">${esc(authority.mode)}</span></div>
-              ${authority.providerId ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:4px;word-break:break-word">from ${esc(displayPluginID(authority.providerId))}</div>` : ""}
-              ${scope ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.dim};margin-top:4px;word-break:break-word">${esc(scope)}</div>` : ""}
-              <div style="font-size:11.5px;line-height:1.4;color:${C.muted};margin-top:3px">${esc(authority.reason)}</div>
-            </div>`;
-        })
-        .join("");
-    const capSection = authorityRows
-        ? `<div style="padding:15px 0 7px;border-top:1px solid ${C.line}"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:4px">Requested authorities</div>${authorityRows}</div>`
+    const authorityRequests = p.authorities || [];
+    const uniqueAuthorities = new Set(authorityRequests.map((authority) => authority.name)).size;
+    const authorityProviders = new Set(authorityRequests.map((authority) => authority.providerId || p.id)).size;
+    const optionalAuthorities = authorityRequests.filter((authority) => authority.mode === "optional").length;
+    const capSection = authorityRequests.length
+        ? `<div style="padding:15px 0;border-top:1px solid ${C.line}">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:7px">Authorities</div>
+            <div style="font-size:13px;color:${C.soft};line-height:1.45">${uniqueAuthorities} unique across ${authorityProviders} ${authorityProviders === 1 ? "provider" : "providers"}${optionalAuthorities ? ` · ${optionalAuthorities} optional` : " · all required"}</div>
+            <button data-act="tab" data-arg="authorities" style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${C.lilac};background:transparent;border:none;padding:7px 0 0;cursor:pointer">Review requests →</button>
+          </div>`
         : "";
 
     // keywords — moved out of the header, npm-style at the bottom

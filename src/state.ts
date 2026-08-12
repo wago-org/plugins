@@ -5,7 +5,7 @@
 import type { Account, Comment, Issue, InstallPoint, Notification, OrgRef, Package, Registry, Report, Review, User, ViewUser } from "./types.js";
 
 export type Screen = "home" | "search" | "package" | "auth" | "account" | "user" | "notifications" | "not-found";
-export type PkgTab = "readme" | "reviews" | "comments" | "dependencies" | "dependents" | "versions" | "settings";
+export type PkgTab = "readme" | "reviews" | "comments" | "authorities" | "dependencies" | "dependents" | "versions" | "settings";
 export type Sort = "popular" | "recent";
 export type AcctTab = "profile" | "plugins" | "stars" | "saved" | "organizations" | "reports" | "settings";
 
