@@ -1,10 +1,14 @@
 const pluginIDPattern = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9](?:[A-Za-z0-9._~-]*[A-Za-z0-9])?)+$/;
 
-// canonicalPluginIDFromPath accepts only a literal full-ID plugin route. The
-// ID alphabet is already URL-safe, so percent-encoding, doubled/trailing
-// slashes, short names, hashes, and v0 paths are all aliases and are rejected.
+// Public plugin routes omit the only supported source host. Convert
+// /owner/repo[/provider] back to the canonical github.com/owner/repo[/provider]
+// ID used by the API and store. The ID alphabet is already URL-safe, so encoded,
+// doubled, trailing-slash, and host-prefixed forms are rejected.
 export function canonicalPluginIDFromPath(pathname: string): string | null {
-    if (!pathname.startsWith("/") || pathname.includes("%")) return null;
-    const id = pathname.slice(1);
-    return id.startsWith("github.com/") && id.length <= 300 && pluginIDPattern.test(id) ? id : null;
+    if (!pathname.startsWith("/") || pathname.startsWith("//") || pathname.includes("%")) return null;
+    const relativeID = pathname.slice(1);
+    const segments = relativeID.split("/");
+    if (relativeID.startsWith("github.com/") || segments.length < 2 || segments[0].includes(".")) return null;
+    const id = `github.com/${relativeID}`;
+    return id.length <= 300 && pluginIDPattern.test(id) ? id : null;
 }

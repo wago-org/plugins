@@ -9,6 +9,7 @@
         "dev": "tsc --watch --preserveWatchOutput",
         "typecheck": "tsc --noEmit",
         "test:routes": "tsc && node scripts/test-v1-routes.mjs",
+        "test:auth-return": "tsc && node scripts/test-auth-return.mjs",
         "test:wat": "tsc && node scripts/test-wat-highlighting.mjs",
         "serve": "python3 -m http.server 8000"
     },

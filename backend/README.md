@@ -221,7 +221,8 @@ system.
 > **Note on module names in API URLs.** `{name}` is one path parameter containing
 > the full canonical module ID, so API clients percent-encode its slashes (for
 > example `github.com%2Fwago-org%2Fwasi`). Public website detail URLs use the
-> readable literal form `/github.com/wago-org/wasi` and accept no short alias.
+> hostless GitHub form `/wago-org/wasi`; the backend restores the canonical
+> `github.com/wago-org/wasi` ID for API lookup.
 
 ## Publish flow
 

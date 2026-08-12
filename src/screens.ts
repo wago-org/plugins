@@ -12,7 +12,7 @@ import type {
     UserEmail,
     VersionRow,
 } from "./types.js";
-import { compactNum, esc, escAttr, fullDate, pkgPath, relativeDate, shortHash, sparkline, starStr, tier, weeklyBuckets } from "./util.js";
+import { compactNum, displayPluginID, esc, escAttr, fullDate, pkgPath, relativeDate, shortHash, sparkline, starStr, tier, weeklyBuckets } from "./util.js";
 import { mdBlock } from "./markdown.js";
 import { avatarFor } from "./github.js";
 import { COPY_ICON } from "./copy.js";
@@ -560,7 +560,7 @@ function featuredCard(p: Package): string {
     return `
         <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:flex;flex-direction:column;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:20px 22px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
-            <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15.5px;color:${C.text}">${esc(p.short)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15.5px;color:${C.text}">${esc(displayPluginID(p.short))}</span>
             ${verified}
           </div>
           <p style="font-size:13.5px;line-height:1.5;color:${C.soft};margin:0 0 16px;flex:1">${esc(p.description)}</p>
@@ -579,7 +579,7 @@ function recentRow(p: Package): string {
         <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px 22px;background:${C.panel};border-top:1px solid ${C.line}">
           <div style="min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-              <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.text}">${esc(p.short)}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.text}">${esc(displayPluginID(p.short))}</span>
               ${verified}
               <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
             </div>
@@ -673,7 +673,7 @@ function searchRow(p: Package): string {
     return `
         <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:block;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:20px 22px">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;flex-wrap:wrap">
-            <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:${C.lilac}">${esc(p.short)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
             ${verified}
             <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">${esc(p.version)}</span>
           </div>
@@ -752,10 +752,10 @@ export function packageScreen(s: AppState): string {
 
     return `
 <div style="padding:28px 0 72px">
-  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">plugins</a>${catCrumb}${sep}<span style="color:${C.lilac}">${esc(p.short)}</span></div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">plugins</a>${catCrumb}${sep}<span style="color:${C.lilac}">${esc(displayPluginID(p.short))}</span></div>
 
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-    <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(p.short)}</h1>
+    <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(displayPluginID(p.short))}</h1>
     ${badges}
     <div class="r-pkgactions" style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}${repoBtn}</div>
   </div>
@@ -783,7 +783,7 @@ export function packageScreen(s: AppState): string {
 // for them from then on), just be sent to GitHub to star manually, and tick
 // "don't ask again" to skip this next time.
 function starConsentModal(s: AppState): string {
-    const repo = s.pkg?.short ? esc(s.pkg.short) : "this plugin";
+    const repo = s.pkg?.short ? esc(displayPluginID(s.pkg.short)) : "this plugin";
     const check = s.starPromptDontAsk;
     return `
     <div data-act="star-cancel" style="position:fixed;inset:0;z-index:120;background:rgba(11,8,32,0.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px">
@@ -1118,7 +1118,7 @@ function depRow(s: AppState, module: string): string {
     if (pkg) return pkgLinkRow(pkg);
     const gh = /^github\.com\//.test(module) ? `https://${module}` : "";
     return `<div style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
-      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.text};flex:1;min-width:0;overflow-x:auto;white-space:nowrap">${esc(module)}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${C.text};flex:1;min-width:0;overflow-x:auto;white-space:nowrap">${esc(displayPluginID(module))}</span>
       ${gh ? `<a href="${escAttr(gh)}" target="_blank" rel="noopener" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.lilac};flex-shrink:0">source ↗</a>` : `<span style="font-size:11px;color:${C.muted};flex-shrink:0">not in registry</span>`}
     </div>`;
 }
@@ -1127,8 +1127,8 @@ function depRow(s: AppState, module: string): string {
 function pkgLinkRow(p: Package): string {
     return `<a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
       <div style="min-width:0">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.text}">${esc(p.short)}</div>
-        <div style="font-size:12.5px;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description || p.id)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.text}">${esc(displayPluginID(p.short))}</div>
+        <div style="font-size:12.5px;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description || displayPluginID(p.id))}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">★ ${(p.stars || 0).toLocaleString()}</div>
     </a>`;
@@ -1166,7 +1166,7 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
     const providers = (v.providers || [])
         .map(
             (provider) => `<div style="padding:8px 0;border-top:1px solid ${C.line}">
-                  <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:${C.lilac};word-break:break-all">${esc(provider.id)}</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:${C.lilac};word-break:break-all">${esc(displayPluginID(provider.id))}</div>
                   <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:3px;word-break:break-all">provider ${esc(provider.importPath)}</div>
                   <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:2px;word-break:break-all">definition ${esc(provider.definitionDigest)}</div>
                 </div>`,
@@ -1214,7 +1214,8 @@ function pkgSidebar(s: AppState): string {
         c: b.count,
         d: b.date,
     }));
-    // Plugin IDs are full canonical paths in every surface, including commands.
+    // CLI commands continue to use the full canonical ID even though visible
+    // labels omit the redundant GitHub host.
     const installCmd = `wago add ${p.short}`;
 
     // A metadata cell (label + value); rendered full-width or half-width.
@@ -1263,7 +1264,7 @@ function pkgSidebar(s: AppState): string {
             const optional = authority.mode === "optional";
             return `<div style="padding:8px 0;border-top:1px solid ${C.line}">
               <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${optional ? C.lilac : C.pink}">⚑ ${esc(authority.name)}</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};border:1px solid ${C.line2};padding:1px 5px;border-radius:4px">${esc(authority.mode)}</span></div>
-              ${authority.providerId ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:4px;word-break:break-word">from ${esc(authority.providerId)}</div>` : ""}
+              ${authority.providerId ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${C.muted};margin-top:4px;word-break:break-word">from ${esc(displayPluginID(authority.providerId))}</div>` : ""}
               ${scope ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.dim};margin-top:4px;word-break:break-word">${esc(scope)}</div>` : ""}
               <div style="font-size:11.5px;line-height:1.4;color:${C.muted};margin-top:3px">${esc(authority.reason)}</div>
             </div>`;
@@ -1559,7 +1560,7 @@ function reportModal(s: AppState): string {
         .join("");
     const canSend = !!s.reportReason && !s.reportSending;
     return shell(
-        `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:18px;color:${C.pink}">⚑</span><h2 style="font-weight:800;font-size:18px;margin:0">Report ${esc(s.pkg?.short || "plugin")}</h2></div>
+        `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:18px;color:${C.pink}">⚑</span><h2 style="font-weight:800;font-size:18px;margin:0">Report ${esc(displayPluginID(s.pkg?.short || "plugin"))}</h2></div>
      <p style="font-size:13px;line-height:1.55;color:${C.muted};margin:0 0 16px">This goes to the wago moderators. Not for bugs — use the repo's issues for those.</p>
      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px">${opts}</div>
      <textarea data-act="report-detail" placeholder="Add details (optional)" style="width:100%;box-sizing:border-box;min-height:70px;resize:vertical;font-family:'Outfit',sans-serif;font-size:13.5px;color:${C.text};background:${C.deep};border:1px solid ${C.line2};border-radius:11px;padding:11px;margin-bottom:16px">${esc(s.reportDetail)}</textarea>
@@ -1756,7 +1757,7 @@ function acctProfile(s: AppState): string {
             <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
-                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${rs.color};background:${rs.bg};border:1px solid ${rs.border};padding:2px 8px;border-radius:100px">${p.role}</span>
                 </div>
@@ -1816,7 +1817,7 @@ function acctPlugins(s: AppState): string {
             <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:18px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;flex-wrap:wrap">
-                  <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.lilac}">${esc(p.short)}</a>
+                  <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.lilac}">${esc(displayPluginID(p.short))}</a>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${rs.color};background:${rs.bg};border:1px solid ${rs.border};padding:2px 8px;border-radius:100px">${p.role}</span>
                 </div>
@@ -1890,7 +1891,7 @@ function acctSaved(s: AppState): string {
             <div style="display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
-                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
                   ${p.verified ? `<span style="color:${C.green};font-size:12px">✦</span>` : ""}
                 </div>
@@ -1933,7 +1934,7 @@ function acctStars(s: AppState): string {
             <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
-                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
                   ${p.verified ? `<span style="color:${C.green};font-size:12px">✦</span>` : ""}
                 </div>
@@ -2023,7 +2024,7 @@ export function userScreen(s: AppState): string {
             <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
-                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(p.short)}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${C.muted}">${esc(p.version)}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:${rs.color};background:${rs.bg};border:1px solid ${rs.border};padding:2px 8px;border-radius:100px">${esc(p.role)}</span>
                 </div>

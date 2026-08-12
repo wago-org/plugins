@@ -90,6 +90,13 @@ export function shortHash(commit: string): string {
     return (commit || "").slice(0, 7);
 }
 
+// GitHub is the registry's only source host, so repeating it in every visible
+// plugin label adds noise. Canonical IDs remain unchanged for routes, API calls,
+// and CLI commands.
+export function displayPluginID(id: string): string {
+    return id.startsWith("github.com/") ? id.slice("github.com/".length) : id;
+}
+
 // Turn an RFC3339 timestamp into a human "3 days ago" string.
 export function relativeDate(iso: string): string {
     const then = Date.parse(iso);
@@ -110,11 +117,10 @@ export function relativeDate(iso: string): string {
     return "just now";
 }
 
-// Canonical in-app path is the literal full Plugin ID, for example
-// /github.com/wago-org/wasi. Keeping each slash as a path separator makes links
-// readable while every segment is still encoded independently.
+// Public paths omit github.com because GitHub is the only supported source.
+// The underlying package ID remains canonical for API and CLI use.
 export function pkgPath(p: { short: string; module?: string }): string {
-    const id = p.module || p.short;
+    const id = displayPluginID(p.module || p.short);
     return `/${id.split("/").map(encodeURIComponent).join("/")}`;
 }
 

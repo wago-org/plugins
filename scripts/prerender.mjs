@@ -43,6 +43,7 @@ const esc = (value) =>
 
 const clean = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 const semanticVersion = (value) => clean(value).replace(/^v/, "");
+const displayPluginID = (id) => String(id ?? "").replace(/^github\.com\//, "");
 
 const canonicalID = (pkg) => {
     for (const candidate of [pkg.id, pkg.module, pkg.name]) {
@@ -110,7 +111,7 @@ function isStrictV1Detail(pkg) {
     return latest === 1;
 }
 
-const pathForID = (id) => id.split("/").map(encodeURIComponent).join("/");
+const pathForID = (id) => displayPluginID(id).split("/").map(encodeURIComponent).join("/");
 
 const unique = (values) =>
     [...new Set((values || []).map(clean).filter(Boolean))];
@@ -236,7 +237,7 @@ function packageCard(pkg) {
         ...pkg.keywords.slice(0, 4),
     ]);
     return `<a class="crawler__card" href="/${esc(pathForID(pkg.id))}">
-                    <h3>${esc(pkg.id)}</h3>
+                    <h3>${esc(displayPluginID(pkg.id))}</h3>
                     <p>${esc(pkg.description || "A plugin in the wago registry.")}</p>
                     <div class="crawler__meta">version ${esc(pkg.version)} · owner ${esc(pkg.owner)}</div>
                     ${tags(labels)}
@@ -282,14 +283,14 @@ function packageContent(pkg) {
                       : authority.scope.maxInstances
                         ? `max ${authority.scope.maxInstances} instances, ${authority.scope.maxMemoryBytes} bytes`
                         : "";
-                  return `<li><strong><code>${esc(authority.name)}</code> (${esc(authority.mode)})</strong>${authority.providerId ? ` from <code>${esc(authority.providerId)}</code>` : ""}${scope ? ` — ${esc(scope)}` : ""}: ${esc(authority.reason)}</li>`;
+                  return `<li><strong><code>${esc(authority.name)}</code> (${esc(authority.mode)})</strong>${authority.providerId ? ` from <code>${esc(displayPluginID(authority.providerId))}</code>` : ""}${scope ? ` — ${esc(scope)}` : ""}: ${esc(authority.reason)}</li>`;
               })
               .join("")}</ul>`
         : "";
     return `            <main class="crawler">
                 ${brand()}
                 <p class="crawler__meta"><a href="/">Registry</a> / ${esc(pkg.owner)}</p>
-                <h1>${esc(pkg.id)}</h1>
+                <h1>${esc(displayPluginID(pkg.id))}</h1>
                 <p class="crawler__lead">${esc(pkg.description || "A plugin in the wago registry.")}</p>
                 <ul class="crawler__facts">
                     ${fact("Latest version", pkg.version)}
@@ -341,7 +342,7 @@ function homeJsonLd(packages, generated) {
                     "@type": "ListItem",
                     position: index + 1,
                     url: pkg.url,
-                    name: pkg.id,
+                    name: displayPluginID(pkg.id),
                 })),
             },
         ],
@@ -353,7 +354,7 @@ function packageJsonLd(pkg) {
         "@context": "https://schema.org",
         "@type": "SoftwareSourceCode",
         "@id": `${pkg.url}#software`,
-        name: pkg.id,
+        name: displayPluginID(pkg.id),
         description: pkg.description,
         url: pkg.url,
         codeRepository: pkg.repository,
@@ -558,8 +559,8 @@ async function main() {
         const html = page(
             template,
             {
-                title: `${pkg.id} | wago plugins`,
-                description: pkg.description || `${pkg.id} — a plugin in the wago registry.`,
+                title: `${displayPluginID(pkg.id)} | wago plugins`,
+                description: pkg.description || `${displayPluginID(pkg.id)} — a plugin in the wago registry.`,
                 url: pkg.url,
                 jsonLd: packageJsonLd(pkg),
             },

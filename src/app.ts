@@ -3,6 +3,7 @@
 // everything that mutates state and asks for a re-render lives here.
 
 import * as api from "./api.js";
+import { authHistoryState, authReturnTarget } from "./auth-return.js";
 import { CHECK_ICON, COPY_ICON, copyFrom, copyText } from "./copy.js";
 import * as github from "./github.js";
 import { initMarkdown } from "./markdown.js";
@@ -27,7 +28,7 @@ import { findPackage, state } from "./state.js";
 import { canonicalPluginIDFromPath } from "./routes.js";
 import type { AcctTab, PkgTab, Sort } from "./state.js";
 import type { Me, ViewUser } from "./types.js";
-import { pkgPath } from "./util.js";
+import { displayPluginID, pkgPath } from "./util.js";
 
 const root = (): HTMLElement => document.getElementById("app")!;
 
@@ -51,7 +52,7 @@ function screenBody(): string {
         case "user":
             return userScreen(state);
         case "not-found":
-            return `<div style="padding:120px 24px;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8d7fc7;margin-bottom:12px">404</div><h1 style="font-size:30px;margin:0 0 10px">Plugin not found</h1><p style="color:#8d7fc7;margin:0">Plugin URLs use the full canonical ID, for example <code>github.com/wago-org/wasi</code>.</p></div>`;
+            return `<div style="padding:120px 24px;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8d7fc7;margin-bottom:12px">404</div><h1 style="font-size:30px;margin:0 0 10px">Plugin not found</h1><p style="color:#8d7fc7;margin:0">Plugin URLs use the GitHub owner and repository, for example <code>/wago-org/wasi</code>.</p></div>`;
         default:
             return homeScreen(state);
     }
@@ -93,8 +94,8 @@ function currentMeta(): { title: string; description: string; url: string; image
     if (state.screen === "package" && state.pkg) {
         const p = state.pkg;
         return {
-            title: `${p.short} | ${SITE}`,
-            description: p.description || `${p.short} — a plugin on the wago registry.`,
+            title: `${displayPluginID(p.short)} | ${SITE}`,
+            description: p.description || `${displayPluginID(p.short)} — a plugin on the wago registry.`,
             url,
             image,
         };
@@ -252,8 +253,8 @@ function enhanceCodeBlocks(): void {
 
 // ── router ───────────────────────────────────────────────────────────────────
 
-function pushUrl(path: string): void {
-    if (location.pathname + location.search !== path) history.pushState(null, "", path || "/");
+function pushUrl(path: string, historyState: unknown = null): void {
+    if (location.pathname + location.search !== path) history.pushState(historyState, "", path || "/");
 }
 
 // Rebuild screen-level state from the current URL path (used on load and on
@@ -305,9 +306,8 @@ async function route(): Promise<void> {
         showNotifications(false);
         return;
     }
-    // The canonical detail URL is the literal full Plugin ID, e.g.
-    // /github.com/wago-org/wasi. Child provider IDs resolve to their source
-    // package too. There is intentionally no short-ID compatibility route.
+    // Public detail URLs omit the GitHub host, e.g. /wago-org/wasi. The router
+    // restores the canonical ID, and child provider IDs resolve to their source.
     if (canonicalPluginID) {
         await openPackage(canonicalPluginID, false);
         return;
@@ -339,7 +339,7 @@ function navHome(): void {
 function navAuth(): void {
     state.screen = "auth";
     state.authError = null;
-    pushUrl("/auth");
+    pushUrl("/auth", authHistoryState(location.href, history.state));
     render();
     scrollTop();
 }
@@ -839,9 +839,9 @@ function paintPicker(active: number): void {
 
 // ── actions ──────────────────────────────────────────────────────────────────
 
-function doSignIn(): void {
+export function doSignIn(): void {
     // Always real GitHub OAuth via the backend.
-    window.location.href = api.signInUrl(location.href);
+    window.location.href = api.signInUrl(authReturnTarget(location.href, history.state));
 }
 
 // Add another account: same OAuth flow, but GitHub's account picker lets you
@@ -874,15 +874,17 @@ async function doSignOut(all = false): Promise<void> {
     }
 }
 
-// afterIdentityChange resets the per-identity view state (stars, inbox, open
-// menus) and lands on the now-active identity's account.
-function afterIdentityChange(): void {
+// afterIdentityChange resets per-identity view state (stars, inbox, open menus).
+// Ordinary account switches land on the account page; the post-login chooser
+// keeps the OAuth return page visible.
+function afterIdentityChange(landOnAccount = true): void {
     state.menuOpen = false;
     state.switcherOpen = false;
     state.loginChooser = false;
     state.starShorts = null;
     state.notifications = null;
-    showAccount("profile", true);
+    if (landOnAccount) showAccount("profile", true);
+    else render();
     void loadNotifications();
 }
 
@@ -899,14 +901,14 @@ async function switchAccount(id: string): Promise<void> {
 }
 
 // Start acting on behalf of an organization the active account administers.
-async function actAsOrg(login: string): Promise<void> {
+async function actAsOrg(login: string, landOnAccount = true): Promise<void> {
     const me = await api.actAsOrg(login);
     if (!me) {
         alert(`Couldn't switch to @${login} — you may no longer administer it.`);
         return;
     }
     applyMe(me);
-    afterIdentityChange();
+    afterIdentityChange(landOnAccount);
 }
 
 // Drop back to the personal account from an org context.
@@ -1267,7 +1269,7 @@ async function submitReport(): Promise<void> {
 async function doTakedown(): Promise<void> {
     const p = state.pkg;
     if (!p) return;
-    if (!confirm(`Take down "${p.short}"? This removes the package from the registry for everyone.`)) return;
+    if (!confirm(`Take down "${displayPluginID(p.short)}"? This removes the package from the registry for everyone.`)) return;
     try {
         await api.takedownPackage(p.short);
         navHome();
@@ -1444,7 +1446,7 @@ async function transferPackage(): Promise<void> {
     if (!p) return;
     const owner = state.transferDraft.trim().replace(/^@/, "");
     if (!owner || owner.toLowerCase() === (p.ownerLogin || "").toLowerCase()) return;
-    if (!confirm(`Transfer "${p.short}" to @${owner}? If it's not the repo's org, they'll get an invite to accept.`)) return;
+    if (!confirm(`Transfer "${displayPluginID(p.short)}" to @${owner}? If it's not the repo's org, they'll get an invite to accept.`)) return;
     try {
         const { pkg: updated, invited } = await api.transferPackage(p.short, owner);
         state.transferDraft = "";
@@ -1500,7 +1502,7 @@ function dispatch(act: string, arg: string | null, el: HTMLElement): void {
             render();
             break;
         case "chooser-org":
-            if (arg) void actAsOrg(arg);
+            if (arg) void actAsOrg(arg, false);
             break;
         case "chooser-close":
             state.loginChooser = false;

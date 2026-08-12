@@ -43,9 +43,9 @@ from the latest published providers instead of the old coarse capability chips.
 See [the backend contract](backend/README.md#publish-flow) for request and response
 shapes.
 
-Package detail URLs use the literal full canonical source ID, for example
-`https://plugins.wago.sh/github.com/wago-org/wasi`. Short-name and historical
-hash routes are intentionally not accepted by the breaking v1 site.
+Package detail URLs omit the only supported source host, for example
+`https://plugins.wago.sh/wago-org/wasi`. The API and CLI continue to use the
+full canonical ID, `github.com/wago-org/wasi`.
 
 The site is designed to **degrade gracefully**: with no backend reachable it
 still runs entirely from the static package index, faking sign-in, stars and
@@ -97,6 +97,7 @@ to see all targets.
 make install     # one-time: npm + go deps
 make web         # site only, at http://localhost:8000 — no backend needed
 make dev         # site + backend together (real, shared data)
+make deploy-local # production build + isolated snapshot of production data
 ```
 
 `make web` builds the TypeScript once and serves the static site. With no
@@ -107,6 +108,19 @@ in the browser, so the whole UI is explorable.
 `make dev` additionally runs the Go backend at `:8787` and `tsc --watch`, so
 stars, reviews, comments, install history and publishing become real. Ctrl-C
 stops all three.
+
+`make deploy-local` briefly stops the remote backend to take a consistent Pebble
+snapshot, immediately restarts and health-checks it, downloads the snapshot,
+and serves a production frontend build at `http://localhost:8000` with a local
+backend at `:8787`. The clone is stored at `backend/data/local-prod-db`; GitHub
+OAuth credentials, pending email codes, and registry API tokens are removed
+before it is opened locally. Local changes never write back to production.
+
+The command prompts before the short production restart. For an intentional
+non-interactive run, use `make deploy-local CONFIRM_PROD_DB_COPY=yes`. Override
+the SSH/deployment defaults with the existing `REMOTE`, `REMOTE_DIR`, and
+`REMOTE_SVC` variables; `REMOTE_STORE_DIR`, `REMOTE_API_PORT`, and
+`LOCAL_STORE_DIR` control the remote snapshot and local database paths.
 
 Other useful targets:
 

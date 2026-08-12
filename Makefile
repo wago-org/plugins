@@ -22,6 +22,9 @@ REMOTE        ?= ec2-user@api.plugins.wago.sh
 REMOTE_DIR    ?= /home/ec2-user/Wago/registry/backend
 REMOTE_SVC    ?= wago-registry
 DEPLOY_GOARCH ?= amd64
+REMOTE_STORE_DIR ?= data/registry-db
+REMOTE_API_PORT  ?= 8787
+LOCAL_STORE_DIR  ?= backend/data/local-prod-db
 
 # npx runs the locally-installed tsc; python serves the static files.
 TSC   := npx tsc
@@ -42,6 +45,7 @@ help: ## Show this help
 	@echo "  make install        # one-time: deps"
 	@echo "  make web            # site only, at http://localhost:$(WEB_PORT) (no backend)"
 	@echo "  make dev            # site + backend together (real data)"
+	@echo "  make deploy-local   # production build + isolated snapshot of the production DB"
 
 ## ── setup ────────────────────────────────────────────────────────────────────
 
@@ -93,9 +97,32 @@ api: ## Run the Go backend at :$(API_PORT) (loads backend/$(ENV_FILE))
 		FRONTEND_URL=$${FRONTEND_URL:-$(FRONTEND_URL)} \
 		OAUTH_REDIRECT_URL=$${OAUTH_REDIRECT_URL:-http://localhost:$(API_PORT)/auth/github/callback} \
 		PACKAGES_FILE=$${PACKAGES_FILE:-../data/packages.json} \
+		STORE_ENGINE=$${STORE_ENGINE_OVERRIDE:-$${STORE_ENGINE:-pebble}} \
+		STORE_DIR=$${STORE_DIR_OVERRIDE:-$${STORE_DIR:-data/registry-db}} \
 		STORE_FILE=$${STORE_FILE:-data/store.json} \
 		SESSION_SECRET=$${SESSION_SECRET:-dev-only-secret} \
 		go run ./cmd/registry
+
+.PHONY: pull-prod-db
+pull-prod-db: ## Replace the isolated local DB with a credential-scrubbed production snapshot
+	@REMOTE='$(REMOTE)' \
+		REMOTE_DIR='$(REMOTE_DIR)' \
+		REMOTE_SVC='$(REMOTE_SVC)' \
+		REMOTE_STORE_DIR='$(REMOTE_STORE_DIR)' \
+		LOCAL_STORE_DIR='$(abspath $(LOCAL_STORE_DIR))' \
+		REMOTE_API_PORT='$(REMOTE_API_PORT)' \
+		CONFIRM_PROD_DB_COPY='$(CONFIRM_PROD_DB_COPY)' \
+		./scripts/pull-prod-db.sh
+
+.PHONY: deploy-local
+deploy-local: build-ts pull-prod-db ## Serve the production frontend + backend using an isolated production DB snapshot
+	@echo "▸ local production snapshot: site http://localhost:$(WEB_PORT) · api :$(API_PORT)"
+	@echo "  database: $(abspath $(LOCAL_STORE_DIR)) (OAuth/API credentials scrubbed)"
+	@trap 'kill 0' INT TERM EXIT; \
+		STORE_ENGINE_OVERRIDE=pebble STORE_DIR_OVERRIDE='$(abspath $(LOCAL_STORE_DIR))' \
+			$(MAKE) --no-print-directory api & \
+		python3 -m http.server $(WEB_PORT) --directory dist & \
+		wait
 
 ## ── build ────────────────────────────────────────────────────────────────────
 
@@ -113,7 +140,7 @@ build-api: ## Compile the backend to backend/registry
 ## ── checks ───────────────────────────────────────────────────────────────────
 
 .PHONY: check
-check: typecheck test-routes test-wat test-api vet ## Run frontend contract checks and backend tests/vet
+check: typecheck test-routes test-auth-return test-wat test-api vet ## Run frontend contract checks and backend tests/vet
 
 .PHONY: typecheck
 typecheck: ## tsc --noEmit
@@ -126,6 +153,10 @@ test-wat: ## Compile and verify WebAssembly Text syntax highlighting
 .PHONY: test-routes
 test-routes: ## Verify canonical v1 plugin URLs and reject aliases
 	npm run test:routes
+
+.PHONY: test-auth-return
+test-auth-return: ## Verify GitHub login returns to the previous non-auth page
+	npm run test:auth-return
 
 .PHONY: test-api
 test-api: ## Run backend unit and contract tests

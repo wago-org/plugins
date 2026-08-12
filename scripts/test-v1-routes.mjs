@@ -2,27 +2,31 @@ import assert from "node:assert/strict";
 
 import { canonicalPluginIDFromPath } from "../assets/js/routes.js";
 import { findPackage } from "../assets/js/state.js";
+import { displayPluginID, pkgPath } from "../assets/js/util.js";
 
 assert.equal(
-    canonicalPluginIDFromPath("/github.com/wago-org/wasi"),
+    canonicalPluginIDFromPath("/wago-org/wasi"),
     "github.com/wago-org/wasi",
 );
+
+assert.equal(displayPluginID("github.com/wago-org/wasi"), "wago-org/wasi");
+assert.equal(displayPluginID("example.com/acme/plugin"), "example.com/acme/plugin");
+assert.equal(pkgPath({ short: "github.com/wago-org/wasi" }), "/wago-org/wasi");
 assert.equal(
-    canonicalPluginIDFromPath("/github.com/acme/plugin/provider"),
+    canonicalPluginIDFromPath("/acme/plugin/provider"),
     "github.com/acme/plugin/provider",
 );
 
 for (const rejected of [
-    "/wago-org/wasi",
-    "/packages/wasi",
-    "/github.com%2Fwago-org%2Fwasi",
-    "/github.com/wago-org%2Fwasi",
-    "/github.com/wago-org/%77asi",
-    "/github.com//wasi",
-    "/github.com/wago-org/wasi/",
-    "//github.com/wago-org/wasi",
-    "/github.com/wago-org/plugin+bad",
-    "/github.com/wago-org/.plugin",
+    "/github.com/wago-org/wasi",
+    "/wago-org%2Fwasi",
+    "/wago-org/wasi%2Fprovider",
+    "/wago-org/%77asi",
+    "/wago-org//wasi",
+    "/wago-org/wasi/",
+    "//wago-org/wasi",
+    "/wago-org/plugin+bad",
+    "/wago-org/.plugin",
     "/gitlab.com/wago-org/wasi",
     "/#/p/wasi",
 ]) {
@@ -42,4 +46,4 @@ assert.equal(
 );
 assert.equal(findPackage({ packages: [source] }, "acme/bundle"), null);
 
-console.log("v1 routes: canonical full IDs accepted; short and legacy forms rejected");
+console.log("v1 routes: GitHub-hostless URLs map to canonical IDs; host-prefixed and malformed forms rejected");
