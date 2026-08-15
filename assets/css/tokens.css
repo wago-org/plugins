@@ -575,6 +575,34 @@ button {
     .r-grid3 {
         grid-template-columns: repeat(2, 1fr) !important;
     }
+    /* Search controls become a compact filter panel above the results instead
+       of a tall desktop sidebar. Account navigation becomes a swipeable rail. */
+    .r-searchfilters {
+        display: grid !important;
+        grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr) minmax(150px, 1fr);
+        gap: 20px !important;
+        padding: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+    }
+    .r-accountnav {
+        gap: 10px !important;
+    }
+    .r-accountlinks {
+        flex-direction: row !important;
+        gap: 6px !important;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+    }
+    .r-accountlinks::-webkit-scrollbar {
+        display: none;
+    }
+    .r-accountlinks > * {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
 }
 
 @media (max-width: 900px) {
@@ -602,8 +630,31 @@ button {
     #app {
         padding: 0 14px;
     }
+    .r-nav {
+        gap: 10px !important;
+        padding: 10px 0 !important;
+    }
+    .r-navactions {
+        gap: 7px !important;
+        margin-left: auto;
+    }
     .r-navpublish {
         display: none !important;
+    }
+    .r-profile-login,
+    .r-profile-trigger > span:last-child {
+        display: none !important;
+    }
+    .r-profile-trigger {
+        padding-right: 4px !important;
+    }
+    .r-profile-menu {
+        position: fixed !important;
+        top: 62px !important;
+        right: 14px !important;
+        left: 14px !important;
+        width: auto !important;
+        max-height: calc(100dvh - 76px) !important;
     }
     /* Everything single-column at phone width. */
     .r-grid3,
@@ -616,12 +667,119 @@ button {
         padding-top: 40px !important;
         padding-bottom: 24px !important;
     }
+    .r-hero-search {
+        gap: 7px !important;
+        padding: 8px 9px !important;
+    }
+    .r-hero-search > button {
+        padding-inline: 12px !important;
+    }
+    .r-section-head {
+        align-items: center !important;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
     /* The package action buttons (save/star/repo) wrap onto their own full-width
        row instead of overflowing to the right of the title. */
     .r-pkgactions {
         margin-left: 0 !important;
         width: 100%;
         flex-wrap: wrap !important;
+    }
+    .r-pkgactions > * {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+    .r-searchfilters {
+        grid-template-columns: 1fr !important;
+        gap: 18px !important;
+        padding: 16px;
+    }
+    .r-filtercats {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 16px !important;
+    }
+    .r-filterlicenses {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        gap: 8px 16px !important;
+    }
+    .r-action-row {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: 12px !important;
+    }
+    .r-action-row > :last-child {
+        width: 100%;
+    }
+    .r-action-row > div:last-child > button {
+        flex: 1;
+    }
+    .r-list-row,
+    .r-version-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .r-list-row > :last-child {
+        text-align: left !important;
+    }
+    .r-saved-row {
+        grid-template-columns: 1fr auto !important;
+        gap: 10px !important;
+    }
+    .r-saved-row > :first-child {
+        grid-column: 1 / -1;
+    }
+    .r-saved-row > :nth-child(2) {
+        text-align: left !important;
+    }
+    .r-org-row {
+        grid-template-columns: auto minmax(0, 1fr) !important;
+    }
+    .r-org-row > :last-child {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+    .r-profile-card {
+        padding: 18px !important;
+    }
+    .r-profile-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .r-profile-actions > * {
+        flex: 1 1 auto;
+        justify-content: center;
+        text-align: center;
+    }
+    .r-accountidentity {
+        display: none !important;
+    }
+    .r-auth {
+        padding: 42px 0 64px !important;
+    }
+    .r-footer {
+        align-items: flex-start !important;
+        flex-direction: column;
+    }
+    .r-footer-copy {
+        align-items: flex-start !important;
+    }
+    .readme .md {
+        font-size: 14px;
+    }
+    .readme .md pre {
+        padding: 12px;
+    }
+    button:not(.code-copy) {
+        min-height: 40px;
+    }
+    .r-navactions > a,
+    .r-pkgactions > a,
+    .r-profile-actions > a {
+        min-height: 40px;
+        align-items: center;
     }
     /* 16px is the threshold below which iOS Safari zooms on input focus. */
     input,
@@ -644,6 +802,28 @@ button {
         margin-left: 0 !important;
         white-space: nowrap;
         flex-shrink: 0;
+    }
+}
+
+@media (max-width: 380px) {
+    #app {
+        padding: 0 10px;
+    }
+    .r-navbrand {
+        gap: 8px !important;
+    }
+    .r-navbrand > span:not(.r-navtag) {
+        font-size: 18px !important;
+    }
+    .r-navactions {
+        gap: 5px !important;
+    }
+    .r-filtercats {
+        grid-template-columns: 1fr;
+    }
+    .r-profile-menu {
+        right: 10px !important;
+        left: 10px !important;
     }
 }
 

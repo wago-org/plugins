@@ -240,7 +240,7 @@ func (a *App) NewRouter() http.Handler {
 	mux.HandleFunc("POST /api/notifications/{id}/accept", a.handleAcceptNotification)
 	mux.HandleFunc("POST /api/notifications/{id}/decline", a.handleDeclineNotification)
 
-	return httpx.CORS(a.Cfg.FrontendURL, mux)
+	return httpx.CORS(a.Cfg.FrontendURL, a.Cfg.DevMode, mux)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {

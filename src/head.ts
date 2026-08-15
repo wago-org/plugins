@@ -39,9 +39,12 @@ interface HeadWagoConfig {
         ?.setAttribute("content", theme === "light" ? "#f7f4ff" : "#1a1547");
 })();
 
+const loopback = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+const lanPreview = location.protocol === "http:" && !loopback;
+
 (window as Window & { WAGO_CONFIG?: HeadWagoConfig }).WAGO_CONFIG = {
-    apiBase:
-        location.hostname === "localhost" || location.hostname === "127.0.0.1"
-            ? undefined
-            : "https://api.plugins.wago.sh",
+    // A phone reaches the local frontend through the development machine's LAN
+    // address, so its API lives on that same host rather than the production
+    // origin. Loopback keeps using config.ts's localhost default.
+    apiBase: loopback ? undefined : lanPreview ? `http://${location.hostname}:8787` : "https://api.plugins.wago.sh",
 };

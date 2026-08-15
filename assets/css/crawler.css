@@ -122,3 +122,29 @@
     margin-bottom: 4px;
     color: var(--text);
 }
+
+@media (max-width: 600px) {
+    /* The crawler fallback lives inside #app, which already owns the phone
+       gutter. Avoid double padding and let cards shrink below their desktop
+       minimums so no-JS and pre-hydration views match the SPA's mobile shell. */
+    .crawler {
+        padding: 36px 0 60px;
+    }
+
+    .crawler__brand {
+        margin-bottom: 30px;
+    }
+
+    .crawler h2 {
+        margin-top: 36px;
+    }
+
+    .crawler__grid,
+    .crawler__facts {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .crawler__card {
+        padding: 18px;
+    }
+}

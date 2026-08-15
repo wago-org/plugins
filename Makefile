@@ -140,7 +140,7 @@ build-api: ## Compile the backend to backend/registry
 ## ── checks ───────────────────────────────────────────────────────────────────
 
 .PHONY: check
-check: typecheck test-routes test-auth-return test-wat test-api vet ## Run frontend contract checks and backend tests/vet
+check: typecheck test-routes test-lan test-auth-return test-wat test-api vet ## Run frontend contract checks and backend tests/vet
 
 .PHONY: typecheck
 typecheck: ## tsc --noEmit
@@ -153,6 +153,10 @@ test-wat: ## Compile and verify WebAssembly Text syntax highlighting
 .PHONY: test-routes
 test-routes: ## Verify canonical v1 plugin URLs and reject aliases
 	npm run test:routes
+
+.PHONY: test-lan
+test-lan: ## Check LAN dev API routing for phone and tablet testing
+	npm run test:lan
 
 .PHONY: test-auth-return
 test-auth-return: ## Verify GitHub login returns to the previous non-auth page

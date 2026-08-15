@@ -136,7 +136,7 @@ export function nav(s: AppState): string {
     const right = s.user ? profileMenu(s) : signInButton();
     return `
 <nav class="r-nav" style="position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:20px;padding:14px 0;background:${C.nav};backdrop-filter:blur(12px);border-bottom:1px solid ${C.line}">
-  <a href="/" data-act="home" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0">
+  <a href="/" data-act="home" class="r-navbrand" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0">
     <img src="/assets/wago-logo.png" alt="wago" style="width:34px;height:34px;border-radius:9px;flex-shrink:0" />
     <span style="font-weight:800;font-size:20px;letter-spacing:-0.5px">wago</span>
     <span class="r-navtag" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.lilac};border:1px solid ${C.line2};padding:3px 10px;border-radius:100px;margin-left:2px">plugins</span>
@@ -146,7 +146,7 @@ export function nav(s: AppState): string {
     <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search plugins…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:${C.text};font-size:14.5px" />
     <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:${C.muted};border:1px solid ${C.line};padding:2px 7px;border-radius:5px">↵</span>
   </div>
-  <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
+  <div class="r-navactions" style="display:flex;align-items:center;gap:14px;flex-shrink:0">
     <a href="/" data-act="home" class="r-navbrowse" style="text-decoration:none;font-size:14px;font-weight:600;color:${homeColor}">Browse</a>
     <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme" title="Toggle color theme">
       <svg class="theme-toggle__icon theme-toggle__icon--moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.5A8.5 8.5 0 0 1 8.5 3.6 8.5 8.5 0 1 0 20.4 15.5Z" /></svg>
@@ -216,7 +216,7 @@ function notificationCard(n: Notification): string {
         action = `<span style="flex-shrink:0;font-size:12.5px;font-weight:700;color:${col}">${label}</span>`;
     }
     const dim = n.status === "pending" ? "" : "opacity:0.6;";
-    return `<div style="display:flex;align-items:center;gap:16px;background:${C.panel};border:1px solid ${C.line};border-radius:13px;padding:16px 18px;${dim}">
+    return `<div class="r-action-row" style="display:flex;align-items:center;gap:16px;background:${C.panel};border:1px solid ${C.line};border-radius:13px;padding:16px 18px;${dim}">
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;line-height:1.5;color:${C.soft}">${line}</div>
         ${when ? `<div style="font-size:11.5px;color:${C.muted};margin-top:4px">${esc(when)}</div>` : ""}
@@ -388,7 +388,7 @@ function profileMenu(s: AppState): string {
             : "";
     const dropdown = s.menuOpen
         ? `
-    <div style="position:absolute;top:48px;right:0;width:264px;max-height:78vh;overflow-y:auto;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:8px;box-shadow:0 22px 44px -18px rgba(0,0,0,.7);z-index:80">
+    <div class="r-profile-menu" style="position:absolute;top:48px;right:0;width:264px;max-height:78vh;overflow-y:auto;background:${C.panel};border:1px solid ${C.line};border-radius:14px;padding:8px;box-shadow:0 22px 44px -18px rgba(0,0,0,.7);z-index:80">
       <div style="display:flex;align-items:center;gap:10px;padding:8px 10px 12px;border-bottom:1px solid ${C.line};margin-bottom:6px">
         ${avatarSpan(u.name, u.initial, u.bg, u.avatarUrl, 38, 15)}
         <div style="min-width:0">
@@ -408,9 +408,9 @@ function profileMenu(s: AppState): string {
         : "";
     return `
     <div data-profile-menu style="position:relative">
-      <button data-act="menu-toggle" style="display:flex;align-items:center;gap:8px;background:transparent;border:1px solid ${acting ? C.lilac : C.line};border-radius:100px;padding:4px 11px 4px 4px;cursor:pointer">
+      <button data-act="menu-toggle" class="r-profile-trigger" style="display:flex;align-items:center;gap:8px;background:transparent;border:1px solid ${acting ? C.lilac : C.line};border-radius:100px;padding:4px 11px 4px 4px;cursor:pointer">
         ${avatarSpan(u.name, u.initial, u.bg, u.avatarUrl, 28, 12)}
-        <span style="font-size:13.5px;font-weight:600;color:${C.text}">${esc(u.login)}</span>
+        <span class="r-profile-login" style="font-size:13.5px;font-weight:600;color:${C.text}">${esc(u.login)}</span>
         ${acting ? orgTag(9) : ""}
         <span style="color:${C.muted};font-size:10px">▾</span>
       </button>
@@ -464,8 +464,8 @@ export function footer(s: AppState): string {
     const total = s.registry?.stats?.[0]?.value ?? "1,240";
     return `
 <footer style="border-top:1px solid ${C.line};margin-top:20px">
-  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px;padding:28px 0">
-    <div style="display:flex;align-items:center;gap:12px">
+  <div class="r-footer" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px;padding:28px 0">
+    <div class="r-footer-copy" style="display:flex;align-items:center;gap:12px">
       <img src="/assets/wago-logo.png" alt="" style="width:34px;height:34px;border-radius:9px" />
       <span style="font-size:13px;color:${C.muted}">A wonderfully quick, compact, and extensible WebAssembly runtime for Go · ${esc(total)} plugins indexed · Apache 2.0</span>
     </div>
@@ -519,7 +519,7 @@ export function homeScreen(s: AppState): string {
     <div style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${C.lilac};background:${C.panel};border:1px solid ${C.line};padding:6px 14px;border-radius:100px;margin-bottom:24px">✦ the wago plugin registry</div>
     <h1 style="font-weight:900;font-size:clamp(30px,5.5vw,58px);line-height:1.04;letter-spacing:-2px;margin:0 0 16px">Extend your runtime.<br><span style="color:${C.lilac}">One import away.</span></h1>
     <p style="font-size:clamp(15px,2.6vw,18px);line-height:1.6;color:${C.soft};margin:0 auto 34px;max-width:560px">A wonderfully quick, compact, and extensible WebAssembly runtime for Go</p>
-    <div style="display:flex;align-items:center;gap:11px;background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:14px 18px;max-width:600px;margin:0 auto 18px">
+    <div class="r-hero-search" style="display:flex;align-items:center;gap:11px;background:${C.deep};border:1px solid ${C.line};border-radius:14px;padding:14px 18px;max-width:600px;margin:0 auto 18px">
       <span style="color:${C.muted};font-size:20px">⌕</span>
       <input value="${escAttr(s.query)}" data-act="query" data-enter="search" placeholder="Search ${esc(totalLabel)} plugins…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:${C.text};font-size:17px" />
       <button data-act="search" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:9px 18px;border-radius:9px;cursor:pointer">Search</button>
@@ -530,7 +530,7 @@ export function homeScreen(s: AppState): string {
   <section class="r-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:16px 0 56px">${stats}</section>
 
   <section style="margin-bottom:52px">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+    <div class="r-section-head" style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
       <h2 style="font-weight:800;font-size:24px;letter-spacing:-0.6px;margin:0">Featured plugins</h2>
       <a href="/search" data-act="search" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.lilac}">browse all →</a>
     </div>
@@ -576,7 +576,7 @@ function featuredCard(p: Package): string {
 function recentRow(p: Package): string {
     const verified = p.verified ? `<span style="color:${C.green};font-size:12px">✦</span>` : "";
     return `
-        <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px 22px;background:${C.panel};border-top:1px solid ${C.line}">
+        <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" class="r-list-row" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px 22px;background:${C.panel};border-top:1px solid ${C.line}">
           <div style="min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
               <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.text}">${esc(displayPluginID(p.short))}</span>
@@ -633,10 +633,10 @@ export function searchScreen(s: AppState): string {
         .join("");
     return `
 <div class="r-split" style="display:grid;grid-template-columns:220px 1fr;gap:32px;padding:32px 0 72px;align-items:start">
-  <aside class="r-side" style="position:sticky;top:78px;display:flex;flex-direction:column;gap:26px">
+  <aside class="r-side r-searchfilters" style="position:sticky;top:78px;display:flex;flex-direction:column;gap:26px">
     <div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">Category</div>
-      <div style="display:flex;flex-direction:column;gap:9px">${filterCats}</div>
+      <div class="r-filtercats" style="display:flex;flex-direction:column;gap:9px">${filterCats}</div>
     </div>
     <div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">Options</div>
@@ -647,7 +647,7 @@ export function searchScreen(s: AppState): string {
     </div>
     <div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;color:${C.muted};text-transform:uppercase;margin-bottom:12px">License</div>
-      <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:${C.soft}">
+      <div class="r-filterlicenses" style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:${C.soft}">
         <span>Apache-2.0</span><span>MIT</span><span>BSD-3-Clause</span>
       </div>
     </div>
@@ -756,7 +756,7 @@ export function packageScreen(s: AppState): string {
 <div style="padding:28px 0 72px">
   <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">plugins</a>${catCrumb}${sep}<span style="color:${C.lilac}">${esc(displayPluginID(p.short))}</span></div>
 
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+  <div class="r-package-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
     <h1 style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:clamp(24px,3.4vw,34px);letter-spacing:-1px;margin:0;word-break:break-all">${esc(displayPluginID(p.short))}</h1>
     ${badges}
     <div class="r-pkgactions" style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">${bookmarkBtn}${starBtn}${repoBtn}</div>
@@ -1129,7 +1129,7 @@ function depRow(s: AppState, module: string): string {
 
 // pkgLinkRow is a compact card linking to a registry package page.
 function pkgLinkRow(p: Package): string {
-    return `<a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
+    return `<a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" class="r-list-row" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${C.line};border-radius:12px;padding:14px 18px">
       <div style="min-width:0">
         <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:${C.text}">${esc(displayPluginID(p.short))}</div>
         <div style="font-size:12.5px;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description || displayPluginID(p.id))}</div>
@@ -1235,7 +1235,7 @@ function versionRow(p: Package, v: VersionRow, first: boolean): string {
                   <div>release ${esc(v.releaseFingerprint)}</div>
                 </div>`;
     return `
-            <div style="display:grid;grid-template-columns:150px 1fr;gap:16px;padding:18px 20px;border-top:${first ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <div class="r-version-row" style="display:grid;grid-template-columns:150px 1fr;gap:16px;padding:18px 20px;border-top:${first ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.text}">${esc(v.version)}</span>
@@ -1648,7 +1648,7 @@ export function authScreen(s: AppState): string {
         ? `<div style="background:#3a1f34;border:1px solid #6b3453;border-radius:11px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#ffb4d2">${esc(s.authError)}</div>`
         : "";
     return `
-<div style="display:flex;justify-content:center;padding:72px 0 90px">
+<div class="r-auth" style="display:flex;justify-content:center;padding:72px 0 90px">
   <div style="width:100%;max-width:410px">
     <div style="text-align:center;margin-bottom:26px">
       <img src="/assets/wago-logo.png" alt="wago" style="width:52px;height:52px;border-radius:13px;margin-bottom:16px" />
@@ -1705,7 +1705,7 @@ export function accountScreen(s: AppState): string {
 
     // While acting as an org, make the context explicit and one-click reversible.
     const banner = acting
-        ? `<div style="display:flex;align-items:center;gap:12px;background:${C.deep};border:1px solid ${C.line2};border-radius:12px;padding:12px 15px;margin-bottom:16px">
+        ? `<div class="r-action-row" style="display:flex;align-items:center;gap:12px;background:${C.deep};border:1px solid ${C.line2};border-radius:12px;padding:12px 15px;margin-bottom:16px">
         <span style="font-size:16px;color:${C.lilac};flex-shrink:0">◈</span>
         <div style="flex:1;min-width:0;font-size:13.5px;color:${C.soft}">Acting as <b style="color:${C.text}">@${esc(u.login)}</b>. Changes you make here apply to the organization.</div>
         <button data-act="back-to-personal" style="flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:7px 13px;border-radius:8px;cursor:pointer">Back to personal</button>
@@ -1715,15 +1715,15 @@ export function accountScreen(s: AppState): string {
     return `
 <div style="padding:32px 0 72px">
   <div class="r-split" style="display:grid;grid-template-columns:230px 1fr;gap:32px;align-items:start">
-    <aside class="r-side" style="position:sticky;top:78px;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${acting ? C.line2 : C.line};border-radius:14px;padding:15px">
+    <aside class="r-side r-accountnav" style="position:sticky;top:78px;display:flex;flex-direction:column;gap:14px">
+      <div class="r-accountidentity" style="display:flex;align-items:center;gap:12px;background:${C.panel};border:1px solid ${acting ? C.line2 : C.line};border-radius:14px;padding:15px">
         ${avatarSpan(u.name, u.initial, u.bg, u.avatarUrl, 44, 17)}
         <div style="min-width:0">
           <div style="display:flex;align-items:center;gap:6px"><span style="font-size:15px;font-weight:700;color:${C.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.name)}</span>${acting ? orgTag(9) : ""}</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">@${esc(u.login)}</div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:3px">${nav}</div>
+      <div class="r-accountlinks" style="display:flex;flex-direction:column;gap:3px">${nav}</div>
     </aside>
     <div style="min-width:0">${banner}${body}</div>
   </div>
@@ -1747,7 +1747,7 @@ function acctOrganizations(s: AppState): string {
               ? `<button data-act="act-as-org" data-arg="${escAttr(o.login)}" style="font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;color:${C.ink};background:${C.lilac};border:none;padding:8px 15px;border-radius:8px;cursor:pointer">Switch to</button>`
               : `<span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:${C.muted}">member</span>`;
         return `
-        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${current ? C.lilac : C.line};border-radius:14px;padding:16px 18px">
+        <div class="r-org-row" style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:${C.panel};border:1px solid ${current ? C.lilac : C.line};border-radius:14px;padding:16px 18px">
           ${avatarSpan(o.name, initialFor(o.name), avatarBgFor(o.login), o.avatarUrl, 42, 16)}
           <div style="min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap">
@@ -1801,7 +1801,7 @@ function acctProfile(s: AppState): string {
             .map((p, i) => {
                 const rs = ROLE_STYLE[p.role];
                 return `
-            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" class="r-list-row" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
@@ -1817,7 +1817,7 @@ function acctProfile(s: AppState): string {
     const bio = s.bioDraft != null ? s.bioDraft : u.bio || "";
     return `
       <div>
-        <div style="display:flex;align-items:flex-start;gap:20px;background:${C.panel};border:1px solid ${C.line};border-radius:18px;padding:26px;margin-bottom:18px;flex-wrap:wrap">
+        <div class="r-profile-card" style="display:flex;align-items:flex-start;gap:20px;background:${C.panel};border:1px solid ${C.line};border-radius:18px;padding:26px;margin-bottom:18px;flex-wrap:wrap">
           ${avatarSpan(u.name, u.initial, u.bg, u.avatarUrl, 76, 30)}
           <div style="flex:1;min-width:200px">
             <h1 style="font-weight:800;font-size:26px;letter-spacing:-0.6px;margin:0 0 3px">${esc(u.name)}</h1>
@@ -1834,7 +1834,7 @@ function acctProfile(s: AppState): string {
             </div>
             ${profileStats(u)}
           </div>
-          <div style="display:flex;gap:8px;flex-shrink:0">
+          <div class="r-profile-actions" style="display:flex;gap:8px;flex-shrink:0">
             ${u.isOrg ? "" : `<button data-act="sync-github" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.text};background:transparent;border:1px solid ${C.line2};padding:9px 15px;border-radius:9px;cursor:pointer">⟳ Sync from GitHub</button>`}
             <a href="#/account" data-act="acct-tab" data-arg="settings" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${C.text};border:1px solid ${C.line2};padding:9px 15px;border-radius:9px">${u.isOrg ? "Organization" : "Edit profile"}</a>
           </div>
@@ -1861,7 +1861,7 @@ function acctPlugins(s: AppState): string {
             .map((p, i) => {
                 const rs = ROLE_STYLE[p.role];
                 return `
-            <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:18px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <div class="r-list-row" style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:18px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px;flex-wrap:wrap">
                   <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${C.lilac}">${esc(displayPluginID(p.short))}</a>
@@ -1935,7 +1935,7 @@ function acctSaved(s: AppState): string {
         const list = saved
             .map(
                 (p, i) => `
-            <div style="display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <div class="r-saved-row" style="display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
@@ -1978,7 +1978,7 @@ function acctStars(s: AppState): string {
         const list = starred
             .map(
                 (p, i) => `
-            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" class="r-list-row" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:16px 20px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
@@ -2068,7 +2068,7 @@ export function userScreen(s: AppState): string {
             .map((p, i) => {
                 const rs = ROLE_STYLE[p.role] || ROLE_STYLE.maintainer;
                 return `
-            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
+            <a href="${pkgPath(p)}" data-act="open" data-arg="${escAttr(p.short)}" class="r-list-row" style="text-decoration:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 18px;border-top:${i === 0 ? "none" : `1px solid ${C.line}`};background:${C.panel}">
               <div style="min-width:0">
                 <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap">
                   <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;color:${C.lilac}">${esc(displayPluginID(p.short))}</span>
@@ -2112,7 +2112,7 @@ export function userScreen(s: AppState): string {
 <div style="padding:32px 0 72px">
   <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:${C.muted};margin-bottom:16px"><a href="/" data-act="home" style="text-decoration:none;color:${C.muted}">plugins</a> <span style="color:${C.line2}">/</span> <span style="color:${C.lilac}">@${esc(login)}</span></div>
   ${unclaimedNote}
-  <div style="display:flex;align-items:flex-start;gap:20px;background:${C.panel};border:1px solid ${C.line};border-radius:18px;padding:26px;margin-bottom:18px;flex-wrap:wrap">
+  <div class="r-profile-card" style="display:flex;align-items:flex-start;gap:20px;background:${C.panel};border:1px solid ${C.line};border-radius:18px;padding:26px;margin-bottom:18px;flex-wrap:wrap">
     ${avatarSpan(vu.name, initial, avatarBgFor(login), vu.avatarUrl, 76, 30)}
     <div style="flex:1;min-width:200px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:3px">
