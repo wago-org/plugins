@@ -90,9 +90,9 @@ export function shortHash(commit: string): string {
     return (commit || "").slice(0, 7);
 }
 
-// GitHub is the registry's only source host, so repeating it in every visible
-// plugin label adds noise. Canonical IDs remain unchanged for routes, API calls,
-// and CLI commands.
+// GitHub is the registry's only source host, so repeating it in public package
+// labels and install commands adds noise. Canonical IDs remain unchanged for
+// internal routes and API calls.
 export function displayPluginID(id: string): string {
     return id.startsWith("github.com/") ? id.slice("github.com/".length) : id;
 }

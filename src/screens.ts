@@ -768,7 +768,7 @@ export function packageScreen(s: AppState): string {
   </div>
 
   ${p.deprecatedMessage ? deprecationBanner(p.deprecatedMessage) : ""}
-  <div class="r-split" style="display:grid;grid-template-columns:1fr 300px;gap:36px;align-items:start">
+  <div class="r-split" style="display:grid;grid-template-columns:1fr 340px;gap:36px;align-items:start">
     <main style="min-width:0">
       <div class="r-tabs" style="display:flex;gap:24px;border-bottom:1px solid ${C.line};margin-bottom:28px;flex-wrap:wrap">${tabs}${settingsTabEl}</div>
       ${pkgTabBody(s)}
@@ -1272,9 +1272,9 @@ function pkgSidebar(s: AppState): string {
         c: b.count,
         d: b.date,
     }));
-    // CLI commands continue to use the full canonical ID even though visible
-    // labels omit the redundant GitHub host.
-    const installCmd = `wago add ${p.short}`;
+    // GitHub is the only source host, so the public install command uses the
+    // same concise owner/repository form as the package label.
+    const installCmd = `wago add ${displayPluginID(p.short)}`;
 
     // A metadata cell (label + value); rendered full-width or half-width.
     const metaCell = (label: string, value: string): string =>
