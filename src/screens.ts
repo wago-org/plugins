@@ -12,7 +12,7 @@ import type {
     UserEmail,
     VersionRow,
 } from "./types.js";
-import { compactNum, displayPluginID, esc, escAttr, fullDate, pkgPath, relativeDate, shortHash, sparkline, starStr, tier, weeklyBuckets } from "./util.js";
+import { compactNum, displayPluginID, esc, escAttr, fullDate, monthlyInstallCount, pkgPath, relativeDate, shortHash, sparkline, starStr, tier, weeklyBuckets } from "./util.js";
 import { mdBlock } from "./markdown.js";
 import { avatarFor } from "./github.js";
 import { COPY_ICON } from "./copy.js";
@@ -1346,7 +1346,7 @@ function pkgSidebar(s: AppState): string {
             ),
         )
         .join("");
-    const monthLabel = compactNum(s.installSeries.slice(-30).reduce((a, b) => a + b.count, 0) || p.installsWeek);
+    const monthLabel = compactNum(monthlyInstallCount(s.installSeries, p.installsMonth));
 
     return `
     <aside style="display:flex;flex-direction:column;gap:0;background:${C.panel};border:1px solid ${C.line};border-radius:16px;padding:4px 22px 22px">

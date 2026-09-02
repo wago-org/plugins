@@ -35,12 +35,13 @@ func TestRecordInstallByModulePathUpdatesCounts(t *testing.T) {
 	var recorded struct {
 		Total int `json:"installsTotal"`
 		Week  int `json:"installsWeek"`
+		Month int `json:"installsMonth"`
 	}
 	if err := json.Unmarshal(recordResult.Body.Bytes(), &recorded); err != nil {
 		t.Fatalf("decode record response: %v", err)
 	}
-	if recorded.Total != 1 || recorded.Week != 1 {
-		t.Fatalf("recorded counts = total %d, week %d; want 1, 1", recorded.Total, recorded.Week)
+	if recorded.Total != 1 || recorded.Week != 1 || recorded.Month != 1 {
+		t.Fatalf("recorded counts = total %d, week %d, month %d; want 1, 1, 1", recorded.Total, recorded.Week, recorded.Month)
 	}
 
 	history := httptest.NewRequest(
@@ -56,11 +57,12 @@ func TestRecordInstallByModulePathUpdatesCounts(t *testing.T) {
 	var loaded struct {
 		Total int `json:"total"`
 		Week  int `json:"week"`
+		Month int `json:"month"`
 	}
 	if err := json.Unmarshal(historyResult.Body.Bytes(), &loaded); err != nil {
 		t.Fatalf("decode history response: %v", err)
 	}
-	if loaded.Total != 1 || loaded.Week != 1 {
-		t.Fatalf("loaded counts = total %d, week %d; want 1, 1", loaded.Total, loaded.Week)
+	if loaded.Total != 1 || loaded.Week != 1 || loaded.Month != 1 {
+		t.Fatalf("loaded counts = total %d, week %d, month %d; want 1, 1, 1", loaded.Total, loaded.Week, loaded.Month)
 	}
 }

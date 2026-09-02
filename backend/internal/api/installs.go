@@ -33,10 +33,13 @@ func (a *App) handleRecordInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	week := a.Store.InstallWeek(p.Short)
+	month := a.Store.InstallMonth(p.Short)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"installsTotal":     a.Store.InstallTotal(p.Short),
-		"installsWeek":      week,
-		"installsWeekLabel": compactCount(week),
+		"installsTotal":      a.Store.InstallTotal(p.Short),
+		"installsWeek":       week,
+		"installsWeekLabel":  compactCount(week),
+		"installsMonth":      month,
+		"installsMonthLabel": compactCount(month),
 	})
 }
 
@@ -54,10 +57,13 @@ func (a *App) handleInstallSeries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	week := a.Store.InstallWeek(p.Short)
+	month := a.Store.InstallMonth(p.Short)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"series":    a.Store.InstallSeries(p.Short, days),
-		"total":     a.Store.InstallTotal(p.Short),
-		"week":      week,
-		"weekLabel": compactCount(week),
+		"series":     a.Store.InstallSeries(p.Short, days),
+		"total":      a.Store.InstallTotal(p.Short),
+		"week":       week,
+		"weekLabel":  compactCount(week),
+		"month":      month,
+		"monthLabel": compactCount(month),
 	})
 }

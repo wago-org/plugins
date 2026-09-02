@@ -565,6 +565,11 @@ async function openPackage(short: string, push = true): Promise<void> {
     void api.loadInstalls(detail).then((r) => {
         if (state.pkg === detail) {
             state.installSeries = r.series;
+            detail.installsTotal = r.total;
+            detail.installsWeek = r.week;
+            detail.installsWeekLabel = r.weekLabel;
+            detail.installsMonth = r.month;
+            detail.installsMonthLabel = r.monthLabel;
             state.starCount = detail.stars;
             render();
         }

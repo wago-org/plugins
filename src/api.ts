@@ -565,13 +565,29 @@ export interface InstallsResult {
     total: number;
     week: number;
     weekLabel: string;
+    month: number;
+    monthLabel: string;
 }
 
 export async function loadInstalls(pkg: Package, days = 365): Promise<InstallsResult> {
     try {
-        return await apiGet<InstallsResult>(packageAPIPath(pkg.short, `/installs?days=${days}`));
+        const result = await apiGet<Partial<InstallsResult> & Pick<InstallsResult, "series" | "total" | "week" | "weekLabel">>(
+            packageAPIPath(pkg.short, `/installs?days=${days}`),
+        );
+        return {
+            ...result,
+            month: result.month ?? pkg.installsMonth,
+            monthLabel: result.monthLabel ?? pkg.installsMonthLabel,
+        };
     } catch {
-        return { series: [], total: 0, week: 0, weekLabel: "0" };
+        return {
+            series: [],
+            total: pkg.installsTotal ?? 0,
+            week: pkg.installsWeek,
+            weekLabel: pkg.installsWeekLabel,
+            month: pkg.installsMonth,
+            monthLabel: pkg.installsMonthLabel,
+        };
     }
 }
 

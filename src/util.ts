@@ -1,7 +1,7 @@
 // Small pure helpers shared across screens. Kept dependency-free so the render
 // layer stays a straight function of state.
 
-import type { User } from "./types.js";
+import type { InstallPoint, User } from "./types.js";
 
 // A 5-slot star string, filled + hollow, matching the design.
 export function starStr(r: number): string {
@@ -80,6 +80,13 @@ export function compactNum(n: number): string {
     if (n >= 1e6) return `${trim(n / 1e6)}M`;
     if (n >= 1e3) return `${trim(n / 1e3)}k`;
     return String(Math.round(n));
+}
+
+// Prefer loaded history when present; otherwise retain the backend's package
+// summary instead of incorrectly substituting the seven-day count.
+export function monthlyInstallCount(series: InstallPoint[], fallback: number): number {
+    if (!series.length) return fallback;
+    return series.slice(-30).reduce((sum, point) => sum + point.count, 0);
 }
 function trim(x: number): string {
     return x.toFixed(1).replace(/\.0$/, "");

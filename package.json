@@ -11,6 +11,7 @@
         "test:routes": "tsc && node scripts/test-v1-routes.mjs",
         "test:lan": "tsc && node scripts/test-lan-dev.mjs",
         "test:auth-return": "tsc && node scripts/test-auth-return.mjs",
+        "test:install-stats": "tsc && node scripts/test-install-stats.mjs",
         "test:wat": "tsc && node scripts/test-wat-highlighting.mjs",
         "serve": "python3 -m http.server 8000"
     },

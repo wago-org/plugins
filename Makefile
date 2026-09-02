@@ -140,7 +140,7 @@ build-api: ## Compile the backend to backend/registry
 ## ── checks ───────────────────────────────────────────────────────────────────
 
 .PHONY: check
-check: typecheck test-routes test-lan test-auth-return test-wat test-api vet ## Run frontend contract checks and backend tests/vet
+check: typecheck test-routes test-lan test-auth-return test-install-stats test-wat test-api vet ## Run frontend contract checks and backend tests/vet
 
 .PHONY: typecheck
 typecheck: ## tsc --noEmit
@@ -161,6 +161,10 @@ test-lan: ## Check LAN dev API routing for phone and tablet testing
 .PHONY: test-auth-return
 test-auth-return: ## Verify GitHub login returns to the previous non-auth page
 	npm run test:auth-return
+
+.PHONY: test-install-stats
+test-install-stats: ## Verify monthly install totals survive API fallback rendering
+	npm run test:install-stats
 
 .PHONY: test-api
 test-api: ## Run backend unit and contract tests
