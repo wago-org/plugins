@@ -454,7 +454,7 @@ func sameStringSet(left, right []string) bool {
 }
 
 var exactAuthorities = map[string]struct{}{
-	"host.import.define": {}, "host.caller.identify": {}, "host.arguments.read": {},
+	"host.import.define": {}, "host.caller.identify": {}, "host.caller.invoke": {}, "host.arguments.read": {},
 	"runtime.close.observe": {}, "module.source.transform": {}, "module.compile.observe": {},
 	"module.close.observe":           {},
 	"instance.instantiate.intercept": {}, "instance.instantiate.observe": {},

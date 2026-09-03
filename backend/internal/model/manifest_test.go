@@ -331,6 +331,22 @@ func TestCatalogAcceptsModuleCloseObserverAuthority(t *testing.T) {
 	}
 }
 
+func TestCatalogAcceptsActiveCallerInvokeAuthority(t *testing.T) {
+	manifest := validManifest(t)
+	catalog := validCatalog(t)
+	catalog[0].Definition.Authorities = []AuthorityRequest{{
+		Name: "host.caller.invoke", Mode: "required", Reason: "Run a guest callback during its active host call",
+	}}
+	digest, err := DefinitionDigest(catalog[0].Definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog[0].DefinitionDigest = digest
+	if err := ValidateProviderCatalog(*manifest.Package, "0.1.0", catalog); err != nil {
+		t.Fatalf("active caller invoke authority rejected: %v", err)
+	}
+}
+
 func TestVersionRangesIntersectAndCompareSemantically(t *testing.T) {
 	match, err := VersionSatisfiesAll("0.3.5", []string{"^0.3.0", ">=0.3.4 <0.4.0"})
 	if err != nil || !match {
